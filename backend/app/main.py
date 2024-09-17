@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# from .api import ImportRouter, AnnotationRouter
+from app.api import ImportRouter
 
 app = FastAPI()
 
@@ -15,5 +15,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.include_router(ImportRouter)
+app.include_router(ImportRouter)
 # app.include_router(AnnotationRouter)

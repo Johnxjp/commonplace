@@ -7,19 +7,23 @@ from typing import BinaryIO, Dict, List, Optional, Tuple
 from app.schemas import KindleAnnotation, KindleAnnotationType
 
 AUTHOR_SEPARATOR = ";"
+BOOK_TITLE = str
+AUTHORS = str
 
 
 def process_kindle_file(
-    file: BinaryIO,
-) -> Dict[Tuple[str, str], List[KindleAnnotation]]:
+    filepath: str,
+) -> Dict[Tuple[BOOK_TITLE, AUTHORS], List[KindleAnnotation]]:
     """
     Returns a dictionary with the key being a tuple of the title and authors
     and values as annotations for that book.
     """
 
     try:
-        annotations = extract_annotations_from_buffer(file)
-        grouped_annotations: Dict[Tuple[str, str], List[KindleAnnotation]] = {}
+        annotations = extract_annotations_from_file(filepath)
+        grouped_annotations: Dict[
+            Tuple[BOOK_TITLE, AUTHORS], List[KindleAnnotation]
+        ] = {}
         for anno in annotations:
             key = (anno.title, AUTHOR_SEPARATOR.join(anno.authors))
             if key not in grouped_annotations:
