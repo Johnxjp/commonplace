@@ -1,5 +1,6 @@
 # This file contains database models for the backend.
 import uuid
+from datetime import datetime
 
 # See pgvector.sqlalchemy support
 # https://github.com/pgvector/pgvector-python?tab=readme-ov-file#sqlalchemy
@@ -36,18 +37,20 @@ class User(Base):
         nullable=False,
         server_default=text("uuid_generate_v4()"),
     )
-    email: Mapped[str] = mapped_column(String, nullable=False)
-    firebase_id: Mapped[str] = mapped_column(
-        String, unique=True, nullable=False
-    )  # TODO: Create firebase
-    username: Mapped[str] = mapped_column(String, nullable=True)
+    # email: Mapped[str] = mapped_column(String, nullable=False)
+    # firebase_id: Mapped[str] = mapped_column(
+    #     String, unique=True, nullable=False
+    # )  # TODO: Create firebase
+    # username: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[str] = mapped_column(
         DateTime(timezone=True), nullable=False, default=func.now()
     )
-    last_logged_in: Mapped[str] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    # subscription = relationship("Subscription", back_populates="user")
+    # last_logged_in: Mapped[str] = mapped_column(
+    #     DateTime(timezone=True), nullable=True
+    # )
+
+
+# subscription = relationship("Subscription", back_populates="user")
 
 
 class BookCatalogue(Base):
@@ -76,26 +79,8 @@ class BookCatalogue(Base):
             f"Book(id={self.id}, "
             f"title={self.title}, "
             f"authors={self.authors}, "
-            f"image_path={self.thumbnail_path})"
+            f"thumbnail_path={self.thumbnail_path})"
         )
-
-
-class Document(Base):
-
-    __tablename__ = "document"
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID,
-        primary_key=True,
-        unique=True,
-        nullable=False,
-        server_default=text("uuid_generate_v4()"),
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("user.id", ondelete="cascade")
-    )
-    title: Mapped[str] = mapped_column(String, nullable=False)
-    created_at: Mapped[int] = mapped_column(DateTime, nullable=True)
-    updated_at: Mapped[int] = mapped_column(DateTime, nullable=True)
 
 
 class BookDocument(Base):
@@ -110,23 +95,34 @@ class BookDocument(Base):
         nullable=False,
         server_default=text("uuid_generate_v4()"),
     )
-    document_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("document.id", ondelete="cascade")
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="cascade")
     )
     book_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("book_catalogue.id")
     )
 
+    title: Mapped[str] = mapped_column(String, nullable=False)
     authors: Mapped[str] = mapped_column(String, nullable=True)
 
-    # clip specified as location
+    # clip specified as location or page depending on type
+    is_clip: Mapped[str] = mapped_column(Boolean, nullable=False)
+    location_type: Mapped[str] = mapped_column(String, nullable=True)
     clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
     clip_end: Mapped[int] = mapped_column(Integer, nullable=True)
-    is_clip: Mapped[str] = mapped_column(Boolean, nullable=False)
 
     # text from book
     content: Mapped[str] = mapped_column(String, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    # Clips can be created separately from the book
+    # BookDocument entirely should be same as Document row
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Avoid indexing on content index on pages
     UniqueConstraint(book_id, content_hash, name="unique_book_clip")
@@ -136,7 +132,7 @@ class BookDocument(Base):
         return (
             f"BookDocument("
             f"book_id={self.id},"
-            f"document_id={self.document_id},"
+            f"user_id={self.user_id},"
             f"content={self.content},"
             f"clip_start={self.clip_start},"
             f"clip_end={self.clip_end},"
@@ -158,15 +154,15 @@ class VideoDocument(Base):
         server_default=text("uuid_generate_v4()"),
     )
 
-    document_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("document.id", ondelete="cascade")
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="cascade")
     )
 
     # source url — youtube videos. Base URL without query params
     source_url: Mapped[str] = mapped_column(String, nullable=False)
 
     # channel for youtube
-    authors: Mapped[str] = mapped_column(String, nullable=True)
+    channel_name: Mapped[str] = mapped_column(String, nullable=True)
 
     # Store as seconds
     clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
@@ -176,10 +172,27 @@ class VideoDocument(Base):
     # transcript
     content: Mapped[str] = mapped_column(String, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
-
-    created_at: Mapped[int] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     UniqueConstraint(source_url, clip_start, clip_end, name="unique_video")
+
+    # create the repr
+    def __repr__(self) -> str:
+        return (
+            f"VideoDocument("
+            f"source_url={self.source_url},"
+            f"user_id={self.user_id},"
+            f"content={self.content},"
+            f"clip_start={self.clip_start},"
+            f"clip_end={self.clip_end},"
+            f"is_clip={self.is_clip}"
+            ")"
+        )
 
 
 class Embeddings(Base):
@@ -195,9 +208,7 @@ class Embeddings(Base):
     )
 
     # source of chunk
-    document_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("document.id", ondelete="cascade")
-    )
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
 
     # chunk_content
     chunk_content: Mapped[str] = mapped_column(String, nullable=False)
@@ -211,7 +222,7 @@ class Embeddings(Base):
         return (
             f"Embeddings("
             f"id={self.id},"
-            f"document_id={self.document_id},"
+            f"source_id={self.source_id},"
             f"chunk_content={self.chunk_content},"
             f"cleaned_chunk={self.cleaned_chunk},"
             f"chunking_strategy={self.chunking_strategy},"
