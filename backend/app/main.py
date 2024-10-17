@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import ImportRouter
+from app.config import setup_logging
+
+setup_logging()
+
 
 app = FastAPI()
 

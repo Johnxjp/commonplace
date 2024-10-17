@@ -4,6 +4,9 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+BOOK_TITLE = str
+BOOK_AUTHORS = str
+
 
 class BookAnnotationType(StrEnum):
     COMMENT = "comment"

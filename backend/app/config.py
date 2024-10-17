@@ -12,6 +12,7 @@ EMBEDDING_DIMENSIONS = 512
 TFHUB_CACHE_DIR = os.path.join("dump/tfhub_models")
 CHUNKING_STRATEGY = None
 THRESHOLD_SCORE = 1.0
+AUTHOR_SEPARATOR = ";"
 
 
 def setup_logging():

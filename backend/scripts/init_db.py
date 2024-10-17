@@ -22,7 +22,7 @@ engine = create_engine(DB_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def init_db(table: Optional[str] = None):
+def init_db(table: Optional[str] = None, add_dummy_user: bool = False):
     print("Initializing database...")
 
     # Create a session
@@ -44,6 +44,20 @@ def init_db(table: Optional[str] = None):
             Base.metadata.create_all(bind=engine)
             print("All tables created successfully.")
 
+        if add_dummy_user:
+            # Add a dummy user with id "6d032281-9e69-4753-a455-b48f7cb9b5c9"
+            # with created_at now
+            db.execute(
+                text(
+                    """
+                    INSERT INTO "user" (id, created_at)
+                    VALUES ('6d032281-9e69-4753-a455-b48f7cb9b5c9', now());
+                    """
+                )
+            )
+            db.commit()
+            print("Dummy user added successfully.")
+
     except Exception as e:
         print(f"An error occurred: {str(e)}")
         db.rollback()
@@ -56,6 +70,9 @@ if __name__ == "__main__":
         description="Utilities to interact with database."
     )
     parser.add_argument("--table", type=str, help="Table to interact with.")
+    parser.add_argument(
+        "--add_dummy_user", action="store_true", help="Add a dummy user."
+    )
     args = parser.parse_args()
 
-    init_db(args.table)
+    init_db(args.table, args.add_dummy_user)

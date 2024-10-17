@@ -42,6 +42,9 @@ class User(Base):
     #     String, unique=True, nullable=False
     # )  # TODO: Create firebase
     # username: Mapped[str] = mapped_column(String, nullable=True)
+    # disabled: Mapped[bool] = mapped_column(
+    #     Boolean, nullable=False, default=False
+    # )
     created_at: Mapped[str] = mapped_column(
         DateTime(timezone=True), nullable=False, default=func.now()
     )
@@ -124,7 +127,6 @@ class BookDocument(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    # Avoid indexing on content index on pages
     UniqueConstraint(book_id, content_hash, name="unique_book_clip")
 
     # create the repr

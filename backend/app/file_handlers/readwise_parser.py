@@ -1,10 +1,17 @@
 """ Parses export documents from readwise """
 
 from datetime import datetime
+from typing import Dict, Tuple
 
 import pandas as pd
 
-from app import schemas
+from app.config import AUTHOR_SEPARATOR
+from app.schemas import (
+    BookAnnotation,
+    BookAnnotationType,
+    BOOK_TITLE,
+    BOOK_AUTHORS,
+)
 
 
 def validate_readwise_csv(filepath: str) -> bool:
@@ -32,7 +39,18 @@ def validate_readwise_csv(filepath: str) -> bool:
     return True
 
 
-def process_readwise_csv(filepath: str) -> list[schemas.BookAnnotation]:
+def parse_author(raw_author: str) -> str:
+    """
+    Parse the author string. Split multiple authors by semicolon.
+    """
+    if " and " in raw_author:
+        return raw_author.replace(" and ", AUTHOR_SEPARATOR)
+    return raw_author
+
+
+def process_readwise_csv(
+    filepath: str,
+) -> Dict[Tuple[BOOK_TITLE, BOOK_AUTHORS], list[BookAnnotation]]:
     """
     Parse a valid readwise export file and return a list of
     annotation objects.
@@ -50,37 +68,43 @@ def process_readwise_csv(filepath: str) -> list[schemas.BookAnnotation]:
     - Highlighted at: datetime
     - Document tags: str
     """
-    content = []
     data = pd.read_csv(filepath, delimiter=",", header=0)
-    for row_num, row in data.iterrows():
-        try:
-            date_annotated = datetime.fromisoformat(row["Highlighted at"])
-            annotation = schemas.BookAnnotation(
-                title=row["Book Title"],
-                authors=row["Book Author"],
-                content=row["Highlight"],
-                annotation_type=schemas.BookAnnotationType.HIGHLIGHT,
-                location_type=row["Location Type"],
-                location_start=int(row["Location"]),
-                location_end=None,
-                date_annotated=date_annotated,
-            )
-            content.append(annotation)
-
-            if row["Note"]:
-                note = schemas.BookAnnotation(
-                    title=row["Book Title"],
-                    authors=row["Book Author"],
-                    content=row["Note"],
-                    annotation_type=schemas.BookAnnotationType.COMMENT,
+    grouped = data.groupby(["Book Title", "Book Author"])
+    content = {}
+    for (title, authors), rows in grouped:
+        annotations = []
+        authors = parse_author(authors)
+        for idx, row in rows.iterrows():
+            try:
+                date_annotated = datetime.fromisoformat(row["Highlighted at"])
+                annotation = BookAnnotation(
+                    title=title,
+                    authors=authors,
+                    content=row["Highlight"],
+                    annotation_type=BookAnnotationType.HIGHLIGHT,
                     location_type=row["Location Type"],
                     location_start=int(row["Location"]),
                     location_end=None,
                     date_annotated=date_annotated,
                 )
-                content.append(note)
+                annotations.append(annotation)
 
-        except Exception as e:
-            print(f"Error parsing row {row_num}: {e}")
+                if row["Note"]:
+                    note = BookAnnotation(
+                        title=title,
+                        authors=authors,
+                        content=row["Note"],
+                        annotation_type=BookAnnotationType.COMMENT,
+                        location_type=row["Location Type"],
+                        location_start=int(row["Location"]),
+                        location_end=None,
+                        date_annotated=date_annotated,
+                    )
+                    annotations.append(note)
+
+            except Exception as e:
+                print(f"Error parsing row {idx} in ({title}, {authors}): {e}")
+
+        content[(title, authors)] = annotations
 
     return content
