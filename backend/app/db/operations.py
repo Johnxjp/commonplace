@@ -52,51 +52,89 @@ def create_book_catalogue_item(
     return book
 
 
-def insert_book_annotation(
-    db: Session, user_id: str, book_id: str, annotation: schemas.BookAnnotation
+def insert_book_document(
+    db: Session, user_id: str, book_id: str, document: schemas.BookAnnotation
 ) -> models.BookDocument:
     """
-    Inserts an annotation into the database.
-    Return the whole row of the database for the annotation.
+    Inserts an document into the database.
+    Return the whole row of the database for the document.
     """
-    document = models.BookDocument(
-        content=annotation.content,
+    data = models.BookDocument(
+        content=document.content,
         user_id=user_id,
         book_id=book_id,
         is_clip=True,
-        title=annotation.title,
-        authors=annotation.authors,
-        location_type=annotation.location_type,
-        clip_start=annotation.location_start,
-        clip_end=annotation.location_end,
-        content_hash=hash_content(annotation.content),
+        title=document.title,
+        authors=document.authors,
+        location_type=document.location_type,
+        clip_start=document.location_start,
+        clip_end=document.location_end,
+        content_hash=hash_content(document.content),
     )
-    db.add(document)
+    db.add(data)
     db.commit()
-    return document
+    return data
 
 
-def insert_book_all_annotations(
+def insert_book_all_documents(
     db: Session,
     user_id: str,
     book_id: str,
-    annotations: list[schemas.BookAnnotation],
+    documents: list[schemas.BookAnnotation],
 ) -> list[models.BookDocument]:
     """
-    Inserts all annotations into the database.
-    Return the whole row of the database for the annotations.
+    Inserts all documents into the database.
+    Return the whole row of the database for the documents.
+
+    Skips over duplicates which violate integrity constraints.
     """
     inserted_rows = []
-    for ann in annotations:
+    for doc in documents:
         try:
-            r = insert_book_annotation(db, user_id, book_id, ann)
+            r = insert_book_document(db, user_id, book_id, doc)
             inserted_rows.append(r)
         except IntegrityError as e:
-            print("Could not insert {ann} for {book_id}")
+            print(f"Could not insert {doc} for {book_id}")
             print(f"Error: {e}")
             db.rollback()
         except SQLAlchemyError as e:
-            print("Could not insert {ann} for {book_id}")
+            print(f"Could not insert {doc} for {book_id}")
+            print(f"Error: {e}")
+            db.rollback()
+
+    return inserted_rows
+
+
+def insert_embedding(
+    db: Session,
+    embedding: models.Embeddings,
+) -> models.Embeddings:
+    """
+    Inserts an embedding into the database.
+    """
+    db.add(embedding)
+    db.commit()
+    return embedding
+
+
+def insert_embeddings(
+    db: Session,
+    embeddings: list[models.Embeddings],
+) -> list[models.Embeddings]:
+    """
+    Inserts embeddings into the database.
+    """
+    inserted_rows = []
+    for emb in embeddings:
+        try:
+            r = insert_embedding(db, emb)
+            inserted_rows.append(r)
+        except IntegrityError as e:
+            print(f"Could not insert {emb}")
+            print(f"Error: {e}")
+            db.rollback()
+        except SQLAlchemyError as e:
+            print(f"Could not insert {emb}")
             print(f"Error: {e}")
             db.rollback()
 

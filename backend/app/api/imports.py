@@ -15,10 +15,11 @@ from fastapi import APIRouter, UploadFile, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app import schemas
-from app.db import get_db, operations as db_operations
+from app.db import get_db, operations as db_operations, models
 from app.file_handlers import process_kindle_file, process_readwise_csv
 from app.file_handlers.readwise_parser import validate_readwise_csv
+from app.index import preprocessing
+from app.index.embedding_job import index_content
 import traceback
 
 ImportRouter = APIRouter()
@@ -27,6 +28,18 @@ logger = logging.getLogger(__name__)
 
 class ImportResponse(BaseModel):
     new_annotation_imports: int
+    job_id: str = "6d032281-9e69-4753-a455-b48f7cb9b5c1"
+
+
+def index_book_annotations(annotations: list[models.BookDocument]) -> None:
+    """
+    Index annotations for a book in the search index.
+
+    This will allow users to search for annotations by content.
+    """
+    for annotation in annotations:
+        # Index the annotation
+        annotation
 
 
 def get_current_user() -> str:
@@ -100,27 +113,44 @@ async def import_book_annotations_from_readwise(
 
             # Process the file
             contents = process_readwise_csv(temp_file_path)
-            for (title, authors), annotations in contents.items():
-                books = db_operations.search_book_by_metadata(
+
+            # TODO: filter out notes for now
+            contents = {
+                key: [
+                    ann for ann in value if ann.annotation_type == "Highlight"
+                ]
+                for key, value in contents.items()
+            }
+
+        new_inserts = []
+        for (title, authors), annotations in contents.items():
+
+            # Find or add book to catalogue
+            # Does the catalogue need to be by user?
+            books = db_operations.search_book_by_metadata(db, title, authors)
+            if not books:
+                book = db_operations.create_book_catalogue_item(
                     db, title, authors
                 )
-                if not books:
-                    book = db_operations.create_book_catalogue_item(
-                        db, title, authors
-                    )
-                    print(f"Added book to catalogue:\n {book}")
-                else:
-                    # Just get first for now
-                    book = books[0]
+                print(f"Added book to catalogue:\n {book}")
+            else:
+                # Just get first for now e.g. if multiple editions
+                book = books[0]
 
-                added = db_operations.insert_book_all_annotations(
-                    db, current_user, str(book.id), annotations
-                )
-                n_new_annos = len(added)
+            new_inserts = db_operations.insert_book_all_documents(
+                db, current_user, str(book.id), annotations
+            )
+            n_new_annos = len(new_inserts)
 
-            # TODO: Then run a background job to generate embeddings
-
-        return ImportResponse(new_annotation_imports=n_new_annos)
+        # Run a background job to generate embeddings
+        # TODO: Do we do this for all annotations at once?
+        # Want to pass the job id to frontend to check status
+        # Add callback?
+        index_content(new_inserts)
+        return ImportResponse(
+            new_annotation_imports=n_new_annos,
+            job_id="6d032281-9e69-4753-a455-b48f7cb9b5c1",
+        )
 
     except Exception as err:
         traceback.print_exc()

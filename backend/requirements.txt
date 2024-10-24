@@ -1,7 +1,9 @@
 fastapi==0.114.2
+nltk==3.9.1
 pgvector==0.3.3
 pandas==2.2.3
 pydantic==2.9.1
 pyscopg2==2.9.9
 python-multipart==0.0.9
+rq==1.16.2
 sqlalchemy==2.0.35

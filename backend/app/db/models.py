@@ -133,12 +133,17 @@ class BookDocument(Base):
     def __repr__(self) -> str:
         return (
             f"BookDocument("
-            f"book_id={self.id},"
+            f"id={self.id},"
+            f"title={self.title},"
+            f"authors={self.authors},"
             f"user_id={self.user_id},"
+            f"book_id={self.user_id},"
             f"content={self.content},"
+            f"is_clip={self.is_clip}"
             f"clip_start={self.clip_start},"
             f"clip_end={self.clip_end},"
-            f"is_clip={self.is_clip}"
+            f"location_type={self.location_type},"
+            f"created_at={self.created_at},"
             ")"
         )
 
@@ -163,8 +168,10 @@ class VideoDocument(Base):
     # source url — youtube videos. Base URL without query params
     source_url: Mapped[str] = mapped_column(String, nullable=False)
 
+    title: Mapped[str] = mapped_column(String, nullable=False)
+
     # channel for youtube
-    channel_name: Mapped[str] = mapped_column(String, nullable=True)
+    authors: Mapped[str] = mapped_column(String, nullable=True)
 
     # Store as seconds
     clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
@@ -187,17 +194,24 @@ class VideoDocument(Base):
     def __repr__(self) -> str:
         return (
             f"VideoDocument("
+            f"id={self.id},"
+            f"title={self.title},"
+            f"authors={self.authors},"
             f"source_url={self.source_url},"
             f"user_id={self.user_id},"
             f"content={self.content},"
+            f"is_clip={self.is_clip}"
             f"clip_start={self.clip_start},"
             f"clip_end={self.clip_end},"
-            f"is_clip={self.is_clip}"
             ")"
         )
 
 
 class Embeddings(Base):
+    """
+    Can enrich embeddings with a number of different metadata
+    e.g. keywords.
+    """
 
     __tablename__ = "document_embeddings"
 
@@ -216,9 +230,10 @@ class Embeddings(Base):
     chunk_content: Mapped[str] = mapped_column(String, nullable=False)
     cleaned_chunk: Mapped[str] = mapped_column(String, nullable=True)
     chunking_strategy: Mapped[str] = mapped_column(String, nullable=True)
-    start_index: Mapped[int] = mapped_column(Integer, nullable=True)
-    end_index: Mapped[int] = mapped_column(Integer, nullable=True)
     embedding = mapped_column(Vector(EMBEDDING_DIMENSIONS), nullable=False)
+
+    # Assuming you have same embedder for all embeddings
+    UniqueConstraint(source_id, chunk_content, name="unique_embedding")
 
     def __repr__(self) -> str:
         return (
@@ -228,6 +243,5 @@ class Embeddings(Base):
             f"chunk_content={self.chunk_content},"
             f"cleaned_chunk={self.cleaned_chunk},"
             f"chunking_strategy={self.chunking_strategy},"
-            f"embedding={self.embedding}"
             ")"
         )
