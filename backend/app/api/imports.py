@@ -19,7 +19,7 @@ from app.db import get_db, operations as db_operations, models
 from app.file_handlers import process_kindle_file, process_readwise_csv
 from app.file_handlers.readwise_parser import validate_readwise_csv
 from app.index import preprocessing
-from app.index.embedding_job import index_content
+from backend.app.index.index_job import index_content
 import traceback
 
 ImportRouter = APIRouter()
@@ -146,7 +146,7 @@ async def import_book_annotations_from_readwise(
         # TODO: Do we do this for all annotations at once?
         # Want to pass the job id to frontend to check status
         # Add callback?
-        index_content(new_inserts)
+        # index_content(new_inserts)
         return ImportResponse(
             new_annotation_imports=n_new_annos,
             job_id="6d032281-9e69-4753-a455-b48f7cb9b5c1",

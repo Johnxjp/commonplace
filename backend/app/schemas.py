@@ -26,7 +26,7 @@ class BookAnnotation(BaseModel):
     authors: str
     content: str
     annotation_type: BookAnnotationType
-    location_type: Optional[str] = None
+    location_type: Optional[str] = None  # page or location
     location_start: Optional[int] = None
     location_end: Optional[int] = None
     date_annotated: Optional[datetime] = None

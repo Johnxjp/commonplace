@@ -1,11 +1,15 @@
-from typing import Optional
+from uuid import UUID
+from typing import Optional, Tuple
 
-from sqlalchemy import select
+
+# import numpy as np
+from sqlalchemy import select, Row
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.db import models
+from app.index.vectoriser import embed
 from app.utils import hash_content
 
 
@@ -139,3 +143,64 @@ def insert_embeddings(
             db.rollback()
 
     return inserted_rows
+
+
+def get_document_by_id(
+    db: Session, document_id: str
+) -> models.Document | None:
+    """
+    Get a document by its id.
+    """
+    query = select(models.Document).filter_by(id=document_id)
+    result = db.scalars(query).first()
+    return result
+
+
+def get_user_document_ids(db: Session, user_id: str) -> list[UUID]:
+    """
+    Get all documents associated with user across books and videos.
+    """
+    query = select(models.Document.id).filter_by(user_id=user_id)
+    result = db.execute(query).all()
+    return [r.id for r in result]
+
+
+def get_documents(db: Session, limit: Optional[int] = 10, random: bool = True):
+    pass
+
+
+def get_similar_chunks(
+    db: Session, user_id: str, text: str, topk: int = 5
+) -> list[Row[Tuple[models.Embeddings, float]]]:
+    """
+    Retrieve similar chunks to a user's text by performing a cosine similarity
+    search across embeddings belonging to the user. Returns the topk results.
+
+    Args:
+        db: SQLAlchemy session
+        user_id: User id
+        text: Text to search for
+        topk: Number of results to return
+
+    Returns: list of tuples containing ids of similar chunks from Embedding
+    table and their cosine similarity scores, ordered by highest to lowest
+    score.
+    """
+
+    user_embeddings_subquery = _join_embeddings_with_user_sources(
+        db, user_id
+    ).cte("user_embeddings")
+
+    query = (
+        select(
+            user_embeddings_subquery.c.source_id,
+            user_embeddings_subquery.c.embedding.cosine_distance(
+                embed(text)
+            ).label("score"),
+        )
+        .order_by("score")
+        .limit(topk)
+    )
+
+    results = db.execute(query).all()
+    return list(results)

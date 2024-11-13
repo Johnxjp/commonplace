@@ -86,10 +86,10 @@ class BookCatalogue(Base):
         )
 
 
-class BookDocument(Base):
-    """Single table that contains all documents and their clips"""
+class Document(Base):
+    """Combine all documents into a single table for simplicity"""
 
-    __tablename__ = "book_document"
+    __tablename__ = "document"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID,
@@ -98,25 +98,15 @@ class BookDocument(Base):
         nullable=False,
         server_default=text("uuid_generate_v4()"),
     )
+
+    # Base document information
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("user.id", ondelete="cascade")
     )
-    book_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("book_catalogue.id")
-    )
-
     title: Mapped[str] = mapped_column(String, nullable=False)
     authors: Mapped[str] = mapped_column(String, nullable=True)
-
-    # clip specified as location or page depending on type
-    is_clip: Mapped[str] = mapped_column(Boolean, nullable=False)
-    location_type: Mapped[str] = mapped_column(String, nullable=True)
-    clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
-    clip_end: Mapped[int] = mapped_column(Integer, nullable=True)
-
-    # text from book
-    content: Mapped[str] = mapped_column(String, nullable=False)
-    content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
+    # Book, Video, Article, PDF
+    document_type: Mapped[str] = mapped_column(String, nullable=False)
 
     # Clips can be created separately from the book
     # BookDocument entirely should be same as Document row
@@ -126,83 +116,47 @@ class BookDocument(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    content: Mapped[str] = mapped_column(String, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
 
-    UniqueConstraint(book_id, content_hash, name="unique_book_clip")
+    # clip specified as location or page depending on type
+    # This can be used to add comments or marginalia to this table too
+    is_clip: Mapped[str] = mapped_column(Boolean, nullable=False)
+    location_type: Mapped[str] = mapped_column(String, nullable=True)
+    clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
+    clip_end: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    #  -- Optional --
+    catalogue_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("book_catalogue.id"), nullable=True
+    )
+
+    # source url — youtube videos. Base URL without query params
+    # could be article links in the future
+    source_url: Mapped[str] = mapped_column(String, nullable=True)
+
+    UniqueConstraint(
+        title, authors, user_id, content_hash, name="unique_document"
+    )
 
     # create the repr
     def __repr__(self) -> str:
         return (
-            f"BookDocument("
+            f"Document("
             f"id={self.id},"
+            f"user_id={self.user_id},"
             f"title={self.title},"
             f"authors={self.authors},"
-            f"user_id={self.user_id},"
-            f"book_id={self.user_id},"
+            f"document_type={self.document_type},"
+            f"created_at={self.created_at},"
+            f"updated_at={self.updated_at},"
             f"content={self.content},"
             f"is_clip={self.is_clip}"
             f"clip_start={self.clip_start},"
             f"clip_end={self.clip_end},"
             f"location_type={self.location_type},"
-            f"created_at={self.created_at},"
-            ")"
-        )
-
-
-class VideoDocument(Base):
-    """Single table that contains all video documents and their clips"""
-
-    __tablename__ = "video_document"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID,
-        primary_key=True,
-        unique=True,
-        nullable=False,
-        server_default=text("uuid_generate_v4()"),
-    )
-
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("user.id", ondelete="cascade")
-    )
-
-    # source url — youtube videos. Base URL without query params
-    source_url: Mapped[str] = mapped_column(String, nullable=False)
-
-    title: Mapped[str] = mapped_column(String, nullable=False)
-
-    # channel for youtube
-    authors: Mapped[str] = mapped_column(String, nullable=True)
-
-    # Store as seconds
-    clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
-    clip_end: Mapped[int] = mapped_column(Integer, nullable=True)
-    is_clip: Mapped[str] = mapped_column(Boolean, nullable=False)
-
-    # transcript
-    content: Mapped[str] = mapped_column(String, nullable=False)
-    content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True, default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
-    UniqueConstraint(source_url, clip_start, clip_end, name="unique_video")
-
-    # create the repr
-    def __repr__(self) -> str:
-        return (
-            f"VideoDocument("
-            f"id={self.id},"
-            f"title={self.title},"
-            f"authors={self.authors},"
+            f"book_id={self.user_id},"
             f"source_url={self.source_url},"
-            f"user_id={self.user_id},"
-            f"content={self.content},"
-            f"is_clip={self.is_clip}"
-            f"clip_start={self.clip_start},"
-            f"clip_end={self.clip_end},"
             ")"
         )
 
@@ -223,8 +177,12 @@ class Embeddings(Base):
         server_default=text("uuid_generate_v4()"),
     )
 
-    # source of chunk
-    source_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
+    # source of chunk either book or video document
+    # Must delete manually when source deleted because
+    # no foreign key constraint
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("document.id", ondelete="cascade"), nullable=False
+    )
 
     # chunk_content
     chunk_content: Mapped[str] = mapped_column(String, nullable=False)

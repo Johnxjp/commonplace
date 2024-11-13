@@ -29,7 +29,6 @@ def delete_db(table: Optional[str] = None):
     db = SessionLocal()
 
     try:
-        # Create all tables
         if table and table in Base.metadata.tables:
             table_obj = Base.metadata.tables[table]
             Base.metadata.drop_all(bind=engine, tables=[table_obj])
