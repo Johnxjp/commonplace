@@ -53,9 +53,6 @@ class User(Base):
     # )
 
 
-# subscription = relationship("Subscription", back_populates="user")
-
-
 class BookCatalogue(Base):
     """Reference table to store information about books. For use in things
     like disambiguation.
@@ -73,6 +70,8 @@ class BookCatalogue(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     authors: Mapped[str] = mapped_column(String, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
+    goodreads_url: Mapped[str] = mapped_column(String, nullable=True)
+    amazon_url: Mapped[str] = mapped_column(String, nullable=True)
 
     # Had to be attributes and not strings
     unique_title_authors = UniqueConstraint(title, authors)
@@ -87,7 +86,10 @@ class BookCatalogue(Base):
 
 
 class Document(Base):
-    """Combine all documents into a single table for simplicity"""
+    """
+    Table for storing documents. A document can be an entire book or a clip
+    from a book.
+    """
 
     __tablename__ = "document"
 
@@ -126,14 +128,9 @@ class Document(Base):
     clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
     clip_end: Mapped[int] = mapped_column(Integer, nullable=True)
 
-    #  -- Optional --
     catalogue_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("book_catalogue.id"), nullable=True
     )
-
-    # source url — youtube videos. Base URL without query params
-    # could be article links in the future
-    source_url: Mapped[str] = mapped_column(String, nullable=True)
 
     UniqueConstraint(
         title, authors, user_id, content_hash, name="unique_document"
@@ -141,31 +138,47 @@ class Document(Base):
 
     # create the repr
     def __repr__(self) -> str:
-        return (
-            f"Document("
-            f"id={self.id},"
-            f"user_id={self.user_id},"
-            f"title={self.title},"
-            f"authors={self.authors},"
-            f"document_type={self.document_type},"
-            f"created_at={self.created_at},"
-            f"updated_at={self.updated_at},"
-            f"content={self.content},"
-            f"is_clip={self.is_clip}"
-            f"clip_start={self.clip_start},"
-            f"clip_end={self.clip_end},"
-            f"location_type={self.location_type},"
-            f"book_id={self.user_id},"
-            f"source_url={self.source_url},"
-            ")"
-        )
+        return str(self.__dict__)
 
 
-class Embeddings(Base):
+class Comment(Base):
     """
-    Can enrich embeddings with a number of different metadata
-    e.g. keywords.
+    Table for storing comments on documents.
+
+    Comments are not embedded.
     """
+
+    __tablename__ = "comment"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        primary_key=True,
+        unique=True,
+        nullable=False,
+        server_default=text("uuid_generate_v4()"),
+    )
+
+    # What comment is attached to. Can be a comment or a document.
+    # If parent is deleted, delete this comment.
+    parent_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="cascade"), nullable=False
+    )
+    content: Mapped[str] = mapped_column(String, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
+
+
+class Embedding(Base):
 
     __tablename__ = "document_embeddings"
 
@@ -177,9 +190,6 @@ class Embeddings(Base):
         server_default=text("uuid_generate_v4()"),
     )
 
-    # source of chunk either book or video document
-    # Must delete manually when source deleted because
-    # no foreign key constraint
     source_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("document.id", ondelete="cascade"), nullable=False
     )
@@ -194,12 +204,4 @@ class Embeddings(Base):
     UniqueConstraint(source_id, chunk_content, name="unique_embedding")
 
     def __repr__(self) -> str:
-        return (
-            f"Embeddings("
-            f"id={self.id},"
-            f"source_id={self.source_id},"
-            f"chunk_content={self.chunk_content},"
-            f"cleaned_chunk={self.cleaned_chunk},"
-            f"chunking_strategy={self.chunking_strategy},"
-            ")"
-        )
+        return str(self.__dict__)
