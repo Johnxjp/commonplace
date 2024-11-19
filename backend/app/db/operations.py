@@ -34,8 +34,63 @@ def get_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
     return list(db.scalars(query).all())
 
 
+def search_libary_by_query(
+    db: Session,
+    user_id: str,
+    text: str,
+) -> list[models.BookCatalogue]:
+    """Search title and authors for any matching keywords"""
+    user_documents = (
+        select(models.Document)
+        .where(models.Document.user_id == user_id)
+        .subquery()
+    )
+
+    query = (
+        select(models.BookCatalogue)
+        .join(
+            user_documents,
+            user_documents.c.catalogue_id == models.BookCatalogue.id,
+        )
+        .filter(
+            models.BookCatalogue.title.icontains(text)
+            | models.BookCatalogue.authors.icontains(text)
+        )
+        .distinct()
+    )
+    return list(db.scalars(query).all())
+
+
+def search_book_by_author(
+    db: Session,
+    user_id: str,
+    authors: str,
+) -> list[models.BookCatalogue]:
+    """
+    Search for a book by author in the database.
+    Returns a list of books that match.
+    """
+    user_documents = (
+        select(models.Document)
+        .where(models.Document.user_id == user_id)
+        .subquery()
+    )
+
+    query = (
+        select(models.BookCatalogue)
+        .join(
+            user_documents,
+            user_documents.c.catalogue_id == models.BookCatalogue.id,
+        )
+        .filter_by(authors=authors)
+        .distinct()
+    )
+    return list(db.scalars(query).all())
+
+
 def search_book_by_metadata(
     db: Session,
+    user_id: str,
     title: str,
     authors: Optional[str] = None,
 ) -> list[models.BookCatalogue]:
@@ -45,14 +100,22 @@ def search_book_by_metadata(
 
     TODO: Requires fuzzy matching
     """
-    results = db.scalars(
-        select(models.BookCatalogue).filter_by(title=title)
-    ).all()
+    user_documents = (
+        select(models.Document)
+        .where(models.Document.user_id == user_id)
+        .subquery()
+    )
 
-    if authors:
-        return list(filter(lambda x: x.authors == authors, results))
-
-    return list(results)
+    query = (
+        select(models.BookCatalogue)
+        .join(
+            user_documents,
+            user_documents.c.catalogue_id == models.BookCatalogue.id,
+        )
+        .filter_by(title=title)
+        .distinct()
+    )
+    return list(db.scalars(query).all())
 
 
 def create_book_catalogue_item(
