@@ -23,9 +23,13 @@ def get_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
         .subquery()
     )
 
-    query = select(models.BookCatalogue).join(
-        user_documents,
-        user_documents.c.catalogue_id == models.BookCatalogue.id,
+    query = (
+        select(models.BookCatalogue)
+        .join(
+            user_documents,
+            user_documents.c.catalogue_id == models.BookCatalogue.id,
+        )
+        .distinct()
     )
     return list(db.scalars(query).all())
 
@@ -38,6 +42,8 @@ def search_book_by_metadata(
     """
     Search for a book by title and author in the database.
     Returns a list of books that match.
+
+    TODO: Requires fuzzy matching
     """
     results = db.scalars(
         select(models.BookCatalogue).filter_by(title=title)
