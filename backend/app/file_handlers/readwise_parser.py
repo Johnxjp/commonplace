@@ -1,6 +1,7 @@
 """ Parses export documents from readwise """
 
 from datetime import datetime
+import logging
 from typing import Dict, Tuple
 
 import pandas as pd
@@ -12,6 +13,9 @@ from app.schemas import (
     BOOK_TITLE,
     BOOK_AUTHORS,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 def validate_readwise_csv(filepath: str) -> bool:
@@ -60,51 +64,66 @@ def process_readwise_csv(
     - Book Title: str
     - Book Author: str
     - Amazon Book ID: str
-    - Note: str
+    - Note: str | nan
     - Color: str
     - Tags: str
     - Location Type: str [page, location]
     - Location: int
     - Highlighted at: datetime
-    - Document tags: str
+    - Document tags: str | nan
     """
     data = pd.read_csv(filepath, delimiter=",", header=0)
-    grouped = data.groupby(["Book Title", "Book Author"])
+    grouped = data.groupby(["Book Title", "Book Author"], dropna=False)
     content = {}
     for (title, authors), rows in grouped:
         annotations = []
-        authors = parse_author(authors)
+        print(f"Number of items for book {title} {authors}", len(rows))
+        annotations_added = 0
+        authors = parse_author(authors) if pd.notna(authors) else None
         for idx, row in rows.iterrows():
             try:
+                location_type = row["Location Type"]
+                if pd.isna(row["Location Type"]):
+                    location_type = "location"
+
                 date_annotated = datetime.fromisoformat(row["Highlighted at"])
                 annotation = BookAnnotation(
                     title=title,
                     authors=authors,
                     content=row["Highlight"],
                     annotation_type=BookAnnotationType.HIGHLIGHT,
-                    location_type=row["Location Type"],
+                    location_type=location_type,
                     location_start=int(row["Location"]),
                     location_end=None,
                     date_annotated=date_annotated,
                 )
                 annotations.append(annotation)
+                annotations_added += 1
 
-                if row["Note"]:
+                if pd.notna(row["Note"]):
                     note = BookAnnotation(
                         title=title,
                         authors=authors,
                         content=row["Note"],
                         annotation_type=BookAnnotationType.COMMENT,
-                        location_type=row["Location Type"],
+                        location_type=location_type,
                         location_start=int(row["Location"]),
                         location_end=None,
                         date_annotated=date_annotated,
                     )
                     annotations.append(note)
+                    annotations_added += 1
 
             except Exception as e:
                 print(f"Error parsing row {idx} in ({title}, {authors}): {e}")
+                print(row)
 
+        # print(f"Added {annotations_added} annotations for {title} {authors}")
+        if annotations_added < len(rows):
+            print(
+                f"Only added {annotations_added} of {len(rows)} annotations for {title} {authors}"
+            )
+        # print(f"Added {annotations_added} annotations for {title} {authors}")
         content[(title, authors)] = annotations
 
     return content

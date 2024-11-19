@@ -113,7 +113,7 @@ class Document(Base):
     # Clips can be created separately from the book
     # BookDocument entirely should be same as Document row
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True, default=func.now()
+        DateTime(timezone=True), nullable=False, default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True

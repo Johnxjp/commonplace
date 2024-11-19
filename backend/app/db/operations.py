@@ -13,8 +13,21 @@ from app.index.vectoriser import embed
 from app.utils import hash_content
 
 
-# def get_thumbnail_path(title: str, author: str) -> Optional[str]:
-#     return None
+def get_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
+    """
+    Retrieve all of a user's books.
+    """
+    user_documents = (
+        select(models.Document)
+        .where(models.Document.user_id == user_id)
+        .subquery()
+    )
+
+    query = select(models.BookCatalogue).join(
+        user_documents,
+        user_documents.c.catalogue_id == models.BookCatalogue.id,
+    )
+    return list(db.scalars(query).all())
 
 
 def search_book_by_metadata(
@@ -58,12 +71,12 @@ def create_book_catalogue_item(
 
 def insert_book_document(
     db: Session, user_id: str, book_id: str, document: schemas.BookAnnotation
-) -> models.BookDocument:
+) -> models.Document:
     """
     Inserts an document into the database.
     Return the whole row of the database for the document.
     """
-    data = models.BookDocument(
+    data = models.Document(
         content=document.content,
         user_id=user_id,
         book_id=book_id,
@@ -85,7 +98,7 @@ def insert_book_all_documents(
     user_id: str,
     book_id: str,
     documents: list[schemas.BookAnnotation],
-) -> list[models.BookDocument]:
+) -> list[models.Document]:
     """
     Inserts all documents into the database.
     Return the whole row of the database for the documents.
@@ -111,8 +124,8 @@ def insert_book_all_documents(
 
 def insert_embedding(
     db: Session,
-    embedding: models.Embeddings,
-) -> models.Embeddings:
+    embedding: models.Embedding,
+) -> models.Embedding:
     """
     Inserts an embedding into the database.
     """
@@ -123,8 +136,8 @@ def insert_embedding(
 
 def insert_embeddings(
     db: Session,
-    embeddings: list[models.Embeddings],
-) -> list[models.Embeddings]:
+    embeddings: list[models.Embedding],
+) -> list[models.Embedding]:
     """
     Inserts embeddings into the database.
     """
@@ -146,12 +159,14 @@ def insert_embeddings(
 
 
 def get_document_by_id(
-    db: Session, document_id: str
+    db: Session,
+    document_id: str,
+    user_id: str,
 ) -> models.Document | None:
     """
     Get a document by its id.
     """
-    query = select(models.Document).filter_by(id=document_id)
+    query = select(models.Document).filter_by(id=document_id, user_id=user_id)
     result = db.scalars(query).first()
     return result
 
@@ -169,38 +184,38 @@ def get_documents(db: Session, limit: Optional[int] = 10, random: bool = True):
     pass
 
 
-def get_similar_chunks(
-    db: Session, user_id: str, text: str, topk: int = 5
-) -> list[Row[Tuple[models.Embeddings, float]]]:
-    """
-    Retrieve similar chunks to a user's text by performing a cosine similarity
-    search across embeddings belonging to the user. Returns the topk results.
+# def get_similar_chunks(
+#     db: Session, user_id: str, text: str, topk: int = 5
+# ) -> list[Row[Tuple[models.Embeddings, float]]]:
+#     """
+#     Retrieve similar chunks to a user's text by performing a cosine similarity
+#     search across embeddings belonging to the user. Returns the topk results.
 
-    Args:
-        db: SQLAlchemy session
-        user_id: User id
-        text: Text to search for
-        topk: Number of results to return
+#     Args:
+#         db: SQLAlchemy session
+#         user_id: User id
+#         text: Text to search for
+#         topk: Number of results to return
 
-    Returns: list of tuples containing ids of similar chunks from Embedding
-    table and their cosine similarity scores, ordered by highest to lowest
-    score.
-    """
+#     Returns: list of tuples containing ids of similar chunks from Embedding
+#     table and their cosine similarity scores, ordered by highest to lowest
+#     score.
+#     """
 
-    user_embeddings_subquery = _join_embeddings_with_user_sources(
-        db, user_id
-    ).cte("user_embeddings")
+#     user_embeddings_subquery = _join_embeddings_with_user_sources(
+#         db, user_id
+#     ).cte("user_embeddings")
 
-    query = (
-        select(
-            user_embeddings_subquery.c.source_id,
-            user_embeddings_subquery.c.embedding.cosine_distance(
-                embed(text)
-            ).label("score"),
-        )
-        .order_by("score")
-        .limit(topk)
-    )
+#     query = (
+#         select(
+#             user_embeddings_subquery.c.source_id,
+#             user_embeddings_subquery.c.embedding.cosine_distance(
+#                 embed(text)
+#             ).label("score"),
+#         )
+#         .order_by("score")
+#         .limit(topk)
+#     )
 
-    results = db.execute(query).all()
-    return list(results)
+#     results = db.execute(query).all()
+#     return list(results)

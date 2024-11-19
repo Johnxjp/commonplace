@@ -23,7 +23,7 @@ class BookAnnotation(BaseModel):
     """Note from book with metadata"""
 
     title: str
-    authors: str
+    authors: Optional[str] = None
     content: str
     annotation_type: BookAnnotationType
     location_type: Optional[str] = None  # page or location
