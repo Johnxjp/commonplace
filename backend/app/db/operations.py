@@ -1,15 +1,13 @@
-from uuid import UUID
-from typing import Optional, Tuple
+from typing import Optional
 
 
 # import numpy as np
-from sqlalchemy import select, Row
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.db import models
-from app.index.vectoriser import embed
 from app.utils import hash_content
 
 
@@ -34,7 +32,7 @@ def get_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
     return list(db.scalars(query).all())
 
 
-def search_libary_by_query(
+def search_library_by_query(
     db: Session,
     user_id: str,
     text: str,
@@ -88,15 +86,62 @@ def search_book_by_author(
     return list(db.scalars(query).all())
 
 
-def search_book_by_metadata(
+def find_matching_documents(
+    db: Session,
+    user_id: str,
+    text_hash: str,
+    title: Optional[str] = None,
+    authors: Optional[str] = None,
+) -> list[models.Document]:
+    """
+    Find documents in the user's library that match the text.
+    """
+    user_documents = (
+        select(models.Document)
+        .where(models.Document.user_id == user_id)
+        .subquery()
+    )
+
+    query = (
+        select(models.Document)
+        .join(
+            user_documents,
+            user_documents.c.id == models.Document.id,
+        )
+        .filter_by(content_hash=text_hash)
+    )
+    if title:
+        query = query.filter_by(title=title)
+    if authors:
+        query = query.filter_by(authors=authors)
+
+    query = query.distinct()
+    return list(db.scalars(query).all())
+
+
+def find_books_in_catalogue(
+    db: Session,
+    title: str,
+    authors: Optional[str] = None,
+) -> list[models.BookCatalogue]:
+    """
+    Find books in the catalogue by title and authors.
+
+    TODO: Add author filters
+    TODO: Add fuzzy matching on title
+    """
+    query = select(models.BookCatalogue).filter_by(title=title).distinct()
+    return list(db.scalars(query).all())
+
+
+def search_user_books(
     db: Session,
     user_id: str,
     title: str,
     authors: Optional[str] = None,
 ) -> list[models.BookCatalogue]:
     """
-    Search for a book by title and author in the database.
-    Returns a list of books that match.
+    Search for a book by title and author in the user's collections
 
     TODO: Requires fuzzy matching
     """
@@ -227,7 +272,7 @@ def insert_embeddings(
     return inserted_rows
 
 
-def get_document_by_id(
+def get_user_document_by_id(
     db: Session,
     document_id: str,
     user_id: str,
@@ -236,17 +281,15 @@ def get_document_by_id(
     Get a document by its id.
     """
     query = select(models.Document).filter_by(id=document_id, user_id=user_id)
-    result = db.scalars(query).first()
-    return result
+    return db.scalars(query).first()
 
 
-def get_user_document_ids(db: Session, user_id: str) -> list[UUID]:
+def get_user_documents(db: Session, user_id: str) -> list[models.Document]:
     """
-    Get all documents associated with user across books and videos.
+    Returns all document associated with user.
     """
-    query = select(models.Document.id).filter_by(user_id=user_id)
-    result = db.execute(query).all()
-    return [r.id for r in result]
+    query = select(models.Document).filter_by(user_id=user_id)
+    return list(db.scalars(query).all())
 
 
 def get_documents(db: Session, limit: Optional[int] = 10, random: bool = True):
