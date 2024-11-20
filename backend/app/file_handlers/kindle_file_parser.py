@@ -15,7 +15,7 @@ from app.schemas import (
 
 def process_kindle_file(
     filepath: str,
-) -> Dict[Tuple[BOOK_TITLE, BOOK_AUTHORS], List[BookAnnotation]]:
+) -> Dict[Tuple[BOOK_TITLE, Optional[BOOK_AUTHORS]], List[BookAnnotation]]:
     """
     Returns a dictionary with the key being a tuple of the title and authors
     and values as annotations for that book.
@@ -24,7 +24,7 @@ def process_kindle_file(
     try:
         annotations = extract_annotations_from_file(filepath)
         grouped_annotations: Dict[
-            Tuple[BOOK_TITLE, BOOK_AUTHORS], List[BookAnnotation]
+            Tuple[BOOK_TITLE, Optional[BOOK_AUTHORS]], List[BookAnnotation]
         ] = {}
         for anno in annotations:
             key = (anno.title, anno.authors)
