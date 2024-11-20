@@ -2,7 +2,7 @@
 
 from datetime import datetime
 import logging
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
 
 import pandas as pd
 
@@ -22,10 +22,12 @@ def validate_readwise_csv(filepath: str) -> bool:
     """
     Just check for existence of column names in the header
     Should really check for the type of the columns as well
+
+    TODO: Could be more specific and see missing components
     """
     contents = pd.read_csv(filepath, delimiter=",", header=0)
     header = contents.columns.tolist()
-    if header != [
+    expected_header = [
         "Highlight",
         "Book Title",
         "Book Author",
@@ -37,7 +39,9 @@ def validate_readwise_csv(filepath: str) -> bool:
         "Location",
         "Highlighted at",
         "Document tags",
-    ]:
+    ]
+    if header != expected_header:
+        logger.info(f"Invalid header: {header}. Expected: {expected_header}")
         return False
 
     return True
@@ -54,7 +58,7 @@ def parse_author(raw_author: str) -> str:
 
 def process_readwise_csv(
     filepath: str,
-) -> Dict[Tuple[BOOK_TITLE, BOOK_AUTHORS], list[BookAnnotation]]:
+) -> Dict[Tuple[BOOK_TITLE, Optional[BOOK_AUTHORS]], list[BookAnnotation]]:
     """
     Parse a valid readwise export file and return a list of
     annotation objects.
@@ -121,7 +125,8 @@ def process_readwise_csv(
         # print(f"Added {annotations_added} annotations for {title} {authors}")
         if annotations_added < len(rows):
             print(
-                f"Only added {annotations_added} of {len(rows)} annotations for {title} {authors}"
+                f"Only added {annotations_added} of {len(rows)} annotations "
+                f"for {title} {authors}"
             )
         # print(f"Added {annotations_added} annotations for {title} {authors}")
         content[(title, authors)] = annotations
