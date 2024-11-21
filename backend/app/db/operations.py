@@ -303,12 +303,6 @@ def get_similar_chunks(
     Retrieve similar chunks to a user's text by performing a cosine similarity
     search across embeddings belonging to the user. Returns the topk results.
 
-    Args:
-        db: SQLAlchemy session
-        user_id: User id
-        text: Text to search for
-        topk: Number of results to return
-
     Returns: list of tuples containing ids of similar chunks from Embedding
     table and their cosine similarity scores, ordered by highest to lowest
     score.
@@ -333,10 +327,10 @@ def get_similar_chunks(
 
     query = (
         select(
-            user_embeddings.c.source_id,
-            user_embeddings.c.embedding.cosine_distance(
-                query_embedding
-            ).label("cosine_distance"),
+            user_embeddings,
+            user_embeddings.c.embedding.cosine_distance(query_embedding).label(
+                "cosine_distance"
+            ),
         )
         .order_by("cosine_distance")
         .limit(topk)
