@@ -1,8 +1,8 @@
-from typing import Optional
+from typing import Optional, Tuple
 
 
 # import numpy as np
-from sqlalchemy import select
+from sqlalchemy import select, Row
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -296,38 +296,51 @@ def get_documents(db: Session, limit: Optional[int] = 10, random: bool = True):
     pass
 
 
-# def get_similar_chunks(
-#     db: Session, user_id: str, text: str, topk: int = 5
-# ) -> list[Row[Tuple[models.Embeddings, float]]]:
-#     """
-#     Retrieve similar chunks to a user's text by performing a cosine similarity
-#     search across embeddings belonging to the user. Returns the topk results.
+def get_similar_chunks(
+    db: Session, user_id: str, query_embedding: list[float], topk: int = 5
+) -> list[Row[Tuple[models.Embedding, float]]]:
+    """
+    Retrieve similar chunks to a user's text by performing a cosine similarity
+    search across embeddings belonging to the user. Returns the topk results.
 
-#     Args:
-#         db: SQLAlchemy session
-#         user_id: User id
-#         text: Text to search for
-#         topk: Number of results to return
+    Args:
+        db: SQLAlchemy session
+        user_id: User id
+        text: Text to search for
+        topk: Number of results to return
 
-#     Returns: list of tuples containing ids of similar chunks from Embedding
-#     table and their cosine similarity scores, ordered by highest to lowest
-#     score.
-#     """
+    Returns: list of tuples containing ids of similar chunks from Embedding
+    table and their cosine similarity scores, ordered by highest to lowest
+    score.
+    """
 
-#     user_embeddings_subquery = _join_embeddings_with_user_sources(
-#         db, user_id
-#     ).cte("user_embeddings")
+    # Get user embeddings by filtering documents on user_id and then
+    # perform cosine similarity on only the chunks which belong to the user.
+    # these will have the same source_id as the document.
+    user_documents = (
+        select(models.Document)
+        .where(models.Document.user_id == user_id)
+        .subquery()
+    )
+    user_embeddings = (
+        select(models.Embedding)
+        .join(
+            user_documents,
+            user_documents.c.id == models.Embedding.source_id,
+        )
+        .subquery()
+    )
 
-#     query = (
-#         select(
-#             user_embeddings_subquery.c.source_id,
-#             user_embeddings_subquery.c.embedding.cosine_distance(
-#                 embed(text)
-#             ).label("score"),
-#         )
-#         .order_by("score")
-#         .limit(topk)
-#     )
+    query = (
+        select(
+            user_embeddings.c.source_id,
+            user_embeddings.c.embedding.cosine_distance(
+                query_embedding
+            ).label("cosine_distance"),
+        )
+        .order_by("cosine_distance")
+        .limit(topk)
+    )
 
-#     results = db.execute(query).all()
-#     return list(results)
+    results = db.execute(query).all()
+    return list(results)
