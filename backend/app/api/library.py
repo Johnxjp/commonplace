@@ -13,6 +13,7 @@ TODO: How to do this by user?
 """
 
 import logging
+from typing import Optional
 
 # from typing import Optional
 
@@ -20,7 +21,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.utils import get_current_user
-from app.db import get_db, operations
+from app.db import get_db, operations, models
+from app.index import retrieval
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,7 @@ LibraryRouter = APIRouter()
 
 
 @LibraryRouter.get("/library")
-def get_library(
+def get_user_library(
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -46,11 +48,11 @@ def get_library(
     - list[models.bookCatalogue]
 
     """
-    return operations.get_library(db, user_id)
+    return operations.get_user_library(db, user_id)
 
 
 @LibraryRouter.get("/documents/{document_id}")
-def get_document(
+def get_user_document(
     document_id: str,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -63,8 +65,8 @@ def get_document(
     # No unified source table so need to check all document source tables
     document = operations.get_user_document_by_id(
         db,
-        document_id,
         user_id,
+        document_id,
     )
     if not document:
         return HTTPException(
@@ -74,70 +76,132 @@ def get_document(
     return document
 
 
-# @LibraryRouter.get("/documents")
-# def get_documents(
-#     user_id: str,
-#     limit: Optional[int] = 10,
-#     offset: Optional[int] = 0,
-#     sort: Optional[str] = "created_at",
-#     order_by: Optional[str] = "desc",
-#     random: bool = False,
-#     random_seed: Optional[int] = None,
-#     db: Session = Depends(get_db),
-# ):
-#     """
-#     Get all documents in the database.
+@LibraryRouter.get("/documents")
+def get_documents(
+    limit: int = 10,
+    maxlimit: int = 50,
+    offset: int = 0,
+    sort: Optional[str] = None,
+    order_by: Optional[str] = "desc",
+    random: bool = False,
+    random_seed: Optional[int] = None,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get all documents in the database.
 
-#     method: specifies order to return documents
+    method: specifies order to return documents
 
-#     TODO: Check sort filter is actually valid by comparing to attributes in
-#     documents. What to return though? Just ignore?
-#     """
-#     if random:
-#         return operations.get_random_documents(
-#             db, user_id=user_id, limit=limit, offset=offset, seed=random_seed
-#         )
+    TODO: Check sort filter is actually valid by comparing to attributes in
+    documents. What to return though? Just ignore?
+    """
+    if limit > maxlimit:
+        print(
+            f"Limit of {limit=} is greater than {maxlimit=}. "
+            f"Setting {limit=} to {maxlimit=}."
+        )
+        limit = maxlimit
 
-#     return operations.get_documents_by_user(
-#         db,
-#         user_id=user_id,
-#         limit=limit,
-#         offset=offset,
-#         sort=sort,
-#         order_by=order_by,
-#         random=random,
-#         seed=random_seed,
-#     )
+    if random:
+        return operations.get_random_user_documents(
+            db, user_id=user_id, limit=limit, random_seed=random_seed
+        )
+
+    table_columns = models.Document.__table__.columns.keys()
+    if sort and sort not in table_columns:
+        return HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid sort field '{sort}' for {models.Document.__name__}."
+            ),
+        )
+
+    if order_by not in ["asc", "desc"]:
+        print(f"Invalid {order_by=} value. Setting to default of 'desc'.")
+        order_by = "desc"
+
+    return operations.get_user_documents(
+        db,
+        user_id=user_id,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        order_by=order_by,
+    )
 
 
 @LibraryRouter.get("/documents/{document_id}/similar")
 def get_similar_documents(
     document_id: str,
-    nmax: int = 5,
+    topk: int = 5,
+    threshold: float = 0.5,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Get similar documents to a given document. This will perform a semantic
-    similarity search based on the content and return up to nmax similar items
+    Get semantically similar documents to a given document based on the
+    content and return up to topk similar documents.
+    """
+    if not operations.get_user_document_by_id(db, user_id, document_id):
+        return HTTPException(
+            status_code=404,
+            detail=(
+                f"Document with {document_id=} "
+                f"belonging to {user_id=} not found.",
+            ),
+        )
 
-    TODO: Ignore document with the same id in similarity search
+    similar_document_ids = retrieval.get_similar_user_documents(
+        db, user_id, document_id, topk=topk
+    )
+
+    output = []
+    for doc_id, score in similar_document_ids:
+        document = operations.get_user_document_by_id(db, user_id, doc_id)
+        if not document:
+            logger.error(f"Document with id {doc_id} not found in database.")
+            continue
+        output.append(
+            {
+                "id": document.id,
+                "title": document.title,
+                "authors": document.authors,
+                "document_type": document.document_type,
+                "created_at": document.created_at,
+                "updated_at": document.updated_at,
+                "content": document.content,
+                "is_clip": document.is_clip,
+                "location_type": document.location_type,
+                "clip_start": document.clip_start,
+                "clip_end": document.clip_end,
+                "catalogue_id": document.catalogue_id,
+                "score": score,
+            }
+        )
+    return output
+
+
+@LibraryRouter.post("/answer")
+def answer_user_query(
+    query: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Recognises the intent of the user's query and returns the appropriate
+    response based on knowledge in the user's library.
+
+    This function requires:
+    1. Decomposing the user's query to recognise intent and to structure
+    the query in a form the system can understand.
+    2. Searching for an answer based on the intent
+    3. Providing the retrieved output to a language model to generate a
+    response.
+    4. Saving the search history for the user.
+    5. Returning the response to the user.
     """
     pass
-
-
-# @LibraryRouter.post("/documents/search")
-# def get_similar_documents(
-#     text: str,
-#     nmax: int = 5,
-#     is_keyword: bool = False,  # TODO: When keyword? Always exact match?
-#     db: Session = Depends(get_db),
-# ):
-#     """
-#     Get similar documents to a given document. This will perform a semantic
-#     similarity search based on the content and return up to nmax similar items
-#     """
-#     pass
 
 
 @LibraryRouter.post("/library/search")

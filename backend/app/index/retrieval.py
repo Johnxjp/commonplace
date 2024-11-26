@@ -37,7 +37,7 @@ def get_similar_user_documents(
 ) -> list[Tuple[str, float]]:
     """
     Retrieve semantically similar documents to a query. Return a list
-    of document ids and scores
+    of document ids and scores. Documents are ordered by best score first.
 
     This is quite complex as a document can have many semantically distinct
     parts. So I will take all the chunks from a document and compare those to

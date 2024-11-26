@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 
 # import numpy as np
-from sqlalchemy import select, Row
+from sqlalchemy import func, select, Row
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.db import models
 from app.utils import hash_content
 
 
-def get_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
+def get_user_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
     """
     Retrieve all of a user's books.
     """
@@ -284,7 +284,7 @@ def get_user_document_by_id(
     return db.scalars(query).first()
 
 
-def get_user_documents(db: Session, user_id: str) -> list[models.Document]:
+def get_all_user_documents(db: Session, user_id: str) -> list[models.Document]:
     """
     Returns all document associated with user.
     """
@@ -302,8 +302,56 @@ def get_document_chunks(
     return list(db.scalars(query).all())
 
 
-def get_documents(db: Session, limit: Optional[int] = 10, random: bool = True):
-    pass
+def get_random_user_documents(
+    db: Session,
+    user_id: str,
+    limit: int = 10,
+    random_seed: Optional[int] = None,
+) -> list[models.Document]:
+    """
+    Returns a random selection of documents from the user's library up
+    to the limit.
+    """
+
+    query = (
+        select(models.Document)
+        .where(models.Document.user_id == user_id)
+        .order_by(func.random())
+        .limit(limit)
+    )
+    return list(db.scalars(query).all())
+
+
+def get_user_documents(
+    db: Session,
+    user_id: str,
+    limit: int = 10,
+    offset: int = 0,
+    sort: Optional[str] = None,
+    order_by: str = "desc",
+) -> list[models.Document]:
+    """
+    Assumes sort is a column in the Document table.
+    """
+    if sort:
+        order = models.Document.__table__.c[sort]
+        order = order.desc() if order_by == "desc" else order.asc()
+        query = (
+            select(models.Document)
+            .where(models.Document.user_id == user_id)
+            .order_by(order)
+            .limit(limit)
+            .offset(offset)
+        )
+    else:
+        query = (
+            select(models.Document)
+            .where(models.Document.user_id == user_id)
+            .limit(limit)
+            .offset(offset)
+        )
+
+    return list(db.scalars(query).all())
 
 
 def get_similar_chunks(
