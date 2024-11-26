@@ -138,7 +138,14 @@ class Document(Base):
 
     # create the repr
     def __repr__(self) -> str:
-        return str(self.__dict__)
+        cols = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in self.__dict__.items()
+                if k != "_sa_instance_state"
+            ]
+        )
+        return f"{self.__class__.__name__}({cols})"
 
 
 class Comment(Base):
@@ -175,7 +182,14 @@ class Comment(Base):
     )
 
     def __repr__(self) -> str:
-        return str(self.__dict__)
+        cols = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in self.__dict__.items()
+                if k != "_sa_instance_state"
+            ]
+        )
+        return f"{self.__class__.__name__}({cols})"
 
 
 class Embedding(Base):
@@ -204,4 +218,11 @@ class Embedding(Base):
     UniqueConstraint(source_id, chunk_content, name="unique_embedding")
 
     def __repr__(self) -> str:
-        return str(self.__dict__)
+        cols = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in self.__dict__.items()
+                if k != "_sa_instance_state"
+            ]
+        )
+        return f"{self.__class__.__name__}({cols})"
