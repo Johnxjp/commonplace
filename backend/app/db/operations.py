@@ -274,8 +274,8 @@ def insert_embeddings(
 
 def get_user_document_by_id(
     db: Session,
-    document_id: str,
     user_id: str,
+    document_id: str,
 ) -> models.Document | None:
     """
     Get a document by its id.
@@ -292,12 +292,27 @@ def get_user_documents(db: Session, user_id: str) -> list[models.Document]:
     return list(db.scalars(query).all())
 
 
+def get_document_chunks(
+    db: Session, document_id: str
+) -> list[models.Embedding]:
+    """
+    Get all chunks and embeddings associated with a document.
+    """
+    query = select(models.Embedding).filter_by(source_id=document_id)
+    return list(db.scalars(query).all())
+
+
 def get_documents(db: Session, limit: Optional[int] = 10, random: bool = True):
     pass
 
 
 def get_similar_chunks(
-    db: Session, user_id: str, query_embedding: list[float], topk: int = 5
+    db: Session,
+    user_id: str,
+    query_embedding: list[float],
+    topk: int = 5,
+    exclude_documents: list[str] | None = None,
+    exclude_chunks: list[str] | None = None,
 ) -> list[Row[Tuple[models.Embedding, float]]]:
     """
     Retrieve similar chunks to a user's text by performing a cosine similarity
@@ -307,34 +322,27 @@ def get_similar_chunks(
     table and their cosine similarity scores, ordered by highest to lowest
     score.
     """
-
-    # Get user embeddings by filtering documents on user_id and then
-    # perform cosine similarity on only the chunks which belong to the user.
-    # these will have the same source_id as the document.
-    user_documents = (
-        select(models.Document)
-        .where(models.Document.user_id == user_id)
-        .subquery()
-    )
-    user_embeddings = (
+    query = (
         select(models.Embedding)
         .join(
-            user_documents,
-            user_documents.c.id == models.Embedding.source_id,
+            models.Document,
+            models.Document.id == models.Embedding.source_id,
         )
-        .subquery()
+        .where(models.Document.user_id == user_id)
     )
 
+    if exclude_documents:
+        query = query.where(models.Document.id.notin_(exclude_documents))
+    if exclude_chunks:
+        query = query.where(models.Embedding.id.notin_(exclude_chunks))
+
+    query = query.subquery()
     query = (
         select(
-            user_embeddings,
-            user_embeddings.c.embedding.cosine_distance(query_embedding).label(
-                "cosine_distance"
-            ),
+            query,
+            query.c.embedding.cosine_distance(query_embedding).label("score"),
         )
-        .order_by("cosine_distance")
+        .order_by("score")
         .limit(topk)
     )
-
-    results = db.execute(query).all()
-    return list(results)
+    return list(db.execute(query).all())
