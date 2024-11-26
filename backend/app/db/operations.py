@@ -15,18 +15,13 @@ def get_user_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
     """
     Retrieve all of a user's books.
     """
-    user_documents = (
-        select(models.Document)
-        .where(models.Document.user_id == user_id)
-        .subquery()
-    )
-
     query = (
         select(models.BookCatalogue)
         .join(
-            user_documents,
-            user_documents.c.catalogue_id == models.BookCatalogue.id,
+            models.Document,
+            models.Document.catalogue_id == models.BookCatalogue.id,
         )
+        .where(models.Document.user_id == user_id)
         .distinct()
     )
     return list(db.scalars(query).all())
