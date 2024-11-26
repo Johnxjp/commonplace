@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ImportRouter
+from app.api import ImportRouter, LibraryRouter
 from app.config import setup_logging
 
 setup_logging()
@@ -20,4 +20,4 @@ app.add_middleware(
 )
 
 app.include_router(ImportRouter)
-# app.include_router(AnnotationRouter)
+app.include_router(LibraryRouter)
