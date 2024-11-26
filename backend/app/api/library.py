@@ -13,11 +13,13 @@ TODO: How to do this by user?
 """
 
 import logging
+
 # from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.utils import get_current_user
 from app.db import get_db, operations
 
 logger = logging.getLogger(__name__)
@@ -27,7 +29,10 @@ LibraryRouter = APIRouter()
 
 
 @LibraryRouter.get("/library")
-def get_library(user_id: str, db: Session = Depends(get_db)):
+def get_library(
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Returns a list of all parent documents in the user's library.
 
@@ -46,7 +51,9 @@ def get_library(user_id: str, db: Session = Depends(get_db)):
 
 @LibraryRouter.get("/documents/{document_id}")
 def get_document(
-    document_id: str, user_id: str, db: Session = Depends(get_db)
+    document_id: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Get a document by its id. A document can be a book or a video and therefore
@@ -103,15 +110,20 @@ def get_document(
 #     )
 
 
-# @LibraryRouter.get("/documents/{document_id}/similar")
-# def get_similar_documents(
-#     document_id: str, nmax: int = 5, db: Session = Depends(get_db)
-# ):
-#     """
-#     Get similar documents to a given document. This will perform a semantic
-#     similarity search based on the content and return up to nmax similar items
-#     """
-#     pass
+@LibraryRouter.get("/documents/{document_id}/similar")
+def get_similar_documents(
+    document_id: str,
+    nmax: int = 5,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get similar documents to a given document. This will perform a semantic
+    similarity search based on the content and return up to nmax similar items
+
+    TODO: Ignore document with the same id in similarity search
+    """
+    pass
 
 
 # @LibraryRouter.post("/documents/search")
@@ -131,7 +143,7 @@ def get_document(
 @LibraryRouter.post("/library/search")
 def library_search(
     query: str,
-    user_id: str,
+    user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """

@@ -14,11 +14,12 @@ import tempfile
 from fastapi import APIRouter, UploadFile, HTTPException, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+import traceback
 
+from app.api.utils import get_current_user
 from app.db import get_db, operations as db_operations
 from app.file_handlers import process_kindle_file, process_readwise_csv
 from app.file_handlers.readwise_parser import validate_readwise_csv
-import traceback
 
 ImportRouter = APIRouter()
 logger = logging.getLogger(__name__)
@@ -27,11 +28,6 @@ logger = logging.getLogger(__name__)
 class ImportResponse(BaseModel):
     new_annotation_imports: int
     index_job_id: str = "6d032281-9e69-4753-a455-b48f7cb9b5c1"
-
-
-def get_current_user() -> str:
-    # TODO: Implement authentication
-    return "6d032281-9e69-4753-a455-b48f7cb9b5c9"
 
 
 @ImportRouter.post("/documents/upload/readwise")
