@@ -4,18 +4,32 @@ Code for doing information retrieval.
 
 from typing import Tuple
 
+import numpy as np
+from sqlalchemy import Row
 from sqlalchemy.orm import Session
 
-from app.db import operations
+from app.db import operations, models
+from app.index import embedding_model
+
+# TODO: Consider re-ranking
 
 
-def find_answer(
-    db: Session, user_id: str, query: str, topk: int = 5
-) -> list[str]:
+def retrieve_candidate_chunks(
+    db: Session,
+    user_id: str,
+    query: str,
+    topk: int = 5,
+    # threshold: float = 0.5,
+) -> list[Row[Tuple[models.Embedding, float]]]:
     """
     Retrieve documents from the user's library that match a query.
+
+    # threshold is the maximum cosine distance score before not a match.
     """
-    return ["This is a placeholder answer."]
+    query_embedding = embedding_model.embed(query)
+    return operations.get_similar_chunks(
+        db, user_id, np.squeeze(query_embedding), topk=topk
+    )
 
 
 def get_similar_user_documents(
@@ -44,7 +58,7 @@ def get_similar_user_documents(
             db,
             user_id,
             chunk.embedding,
-            topk,
+            topk=10,
             exclude_documents=[document_id],
             exclude_chunks=None,
         )
