@@ -148,12 +148,12 @@ export default function Home() {
 
 	return (
 		<div className="min-h-full w-full min-w-0 flex-1">
-			<main className="mx-auto mt-4 w-full max-w-7xl flex-1 md:pl-8 !mt-0 flex flex-col items-center gap-8 pt-12 pr-14">
+			<main className="mx-auto mt-4 h-full w-full max-w-7xl flex md:pl-8 !mt-0 flex flex-col items-center gap-8 pt-12 pr-14">
 				<h1 className="">
 					Good {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}
 				</h1>
 				<h2 className="text-2xl">Let Your Mind Wander</h2>
-				<div className="mx-auto max-w-3xl w-full px-1 md:px-2 flex-1">
+				<div className="mx-auto max-w-3xl w-full px-1 md:px-2 flex">
 					<BookDocumentSampleGrid documents={documents} />
 				</div>
 				<HomeSearchBar />

@@ -1,4 +1,5 @@
 import "./globals.css";
+import NavBar from "@/ui/NavBar";
 
 export default function RootLayout({
 	children,
@@ -7,7 +8,11 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en">
-			<body>{children}</body>
+			<body>
+				<div className="h-screen w-screen flex flex-row">
+					<NavBar>{children}</NavBar>
+				</div>
+			</body>
 		</html>
 	);
 }
