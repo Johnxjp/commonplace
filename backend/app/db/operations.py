@@ -33,18 +33,13 @@ def search_library_by_query(
     text: str,
 ) -> list[models.BookCatalogue]:
     """Search title and authors for any matching keywords"""
-    user_documents = (
-        select(models.Document)
-        .where(models.Document.user_id == user_id)
-        .subquery()
-    )
-
     query = (
         select(models.BookCatalogue)
         .join(
-            user_documents,
-            user_documents.c.catalogue_id == models.BookCatalogue.id,
+            models.Document,
+            models.Document.catalogue_id == models.BookCatalogue.id,
         )
+        .where(models.Document.user_id == user_id)
         .filter(
             models.BookCatalogue.title.icontains(text)
             | models.BookCatalogue.authors.icontains(text)
