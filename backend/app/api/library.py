@@ -79,7 +79,6 @@ def get_user_document(
 @LibraryRouter.get("/documents")
 def get_documents(
     limit: int = 10,
-    maxlimit: int = 50,
     offset: int = 0,
     sort: Optional[str] = None,
     order_by: Optional[str] = "desc",
@@ -96,13 +95,6 @@ def get_documents(
     TODO: Check sort filter is actually valid by comparing to attributes in
     documents. What to return though? Just ignore?
     """
-    if limit > maxlimit:
-        print(
-            f"Limit of {limit=} is greater than {maxlimit=}. "
-            f"Setting {limit=} to {maxlimit=}."
-        )
-        limit = maxlimit
-
     if random:
         return operations.get_random_user_documents(
             db, user_id=user_id, limit=limit, random_seed=random_seed
