@@ -14,29 +14,31 @@ type Item = {
 	thumbnailUrl: string | null;
 };
 
-const dummyItems: Item[] = [
-	{
-		id: "f82befef-c1fe-43e6-8d27-39ea77f65a31",
-		title: "AI 2041: Ten Visions for Our Future",
-		authors: ["Kai-Fu Lee", "Chen Qiufan"],
-		documentType: "book",
-		updatedAt: new Date("2022-11-14T04:56:00.000Z"),
-		clipCount: 5,
-		lastAccessedAt: null,
-		thumbnailUrl: null,
-	},
-	{
-		id: "f82befef-c1fe-43e6-8d27-39ea77f64a31",
-		title: "AI 2041",
-		authors: ["Kai-Fu Lee"],
-		documentType: "book",
-		updatedAt: new Date("2022-11-14T04:56:00.000Z"),
-		clipCount: 10,
-		lastAccessedAt: new Date("2022-11-14T04:56:00.000Z"),
-		thumbnailUrl: null,
-	},
-];
+// const dummyItems: Item[] = [
+// 	{
+// 		id: "f82befef-c1fe-43e6-8d27-39ea77f65a31",
+// 		title: "AI 2041: Ten Visions for Our Future",
+// 		authors: ["Kai-Fu Lee", "Chen Qiufan"],
+// 		documentType: "book",
+// 		updatedAt: new Date("2022-11-14T04:56:00.000Z"),
+// 		clipCount: 5,
+// 		lastAccessedAt: null,
+// 		thumbnailUrl: null,
+// 	},
+// 	{
+// 		id: "f82befef-c1fe-43e6-8d27-39ea77f64a31",
+// 		title: "AI 2041",
+// 		authors: ["Kai-Fu Lee"],
+// 		documentType: "book",
+// 		updatedAt: new Date("2022-11-14T04:56:00.000Z"),
+// 		clipCount: 10,
+// 		lastAccessedAt: new Date("2022-11-14T04:56:00.000Z"),
+// 		thumbnailUrl: null,
+// 	},
+// ];
 
+// TODO: Cache the library items across the app once fetched unless
+// user logs out or changes something
 function LibraryItem({ item }: { item: Item }) {
 	return (
 		<div className="w-full flex flex-row gap-x-2 hover:cursor-pointer hover:bg-slate-100 p-2">
@@ -44,12 +46,10 @@ function LibraryItem({ item }: { item: Item }) {
 				<Image
 					className="rounded-md"
 					src={item.thumbnailUrl !== null ? item.thumbnailUrl : "/vibrant.jpg"}
-					// width={75}
-					// height={75}
 					objectFit="cover"
 					layout="fill"
-					objectPosition="center"
 					alt={item.title}
+					sizes="20vw"
 				/>
 			</div>
 			<div className="flex min-h-full flex-col w-full">
@@ -101,12 +101,11 @@ export default function Library() {
 				"Content-Type": "application/json",
 			},
 		};
-		setItems(dummyItems);
+		// setItems(dummyItems);
 
 		fetch(resourceUrl, requestParams)
 			.then((res) => res.json())
 			.then((data) => {
-				console.log(data);
 				const documents: Item[] = data.map((doc) => {
 					const authors = doc.authors ? doc.authors.split(";") : [];
 					return {
@@ -121,7 +120,6 @@ export default function Library() {
 					};
 				});
 				setItems(documents);
-				console.log(documents);
 			})
 			.catch((err) => console.error(err));
 	}, []);
