@@ -5,7 +5,7 @@ export default function NavBar({
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<>
-			<div className="flex-1 w-16 max-w-16 h-full bg-orange-100 px-3">
+			<div className="relative flex-1 w-16 max-w-16 min-h-full bg-orange-100 px-3">
 				<div className="flex flex-col justify-center gap-y-3 pt-10">
 					<button
 						className="h-8 w-8 font-medium bg-white rounded-md hover:shadow-sm hover:border-md"

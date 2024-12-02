@@ -9,13 +9,15 @@ import HomeSearchBar from "@/HomeSearchBar";
 
 function BookDocumentSampleGrid({ documents }: { documents: BookDocument[] }) {
 	return (
-		<ul className="grid w-full md:grid-cols-3 gap-3">
-			{documents.map((doc) => (
-				<li className="flex-1" key={doc.id}>
-					<BookDocumentCard {...doc} />
-				</li>
-			))}
-		</ul>
+		<div className="mx-auto max-w-4xl w-full px-1 md:px-2 flex">
+			<ul className="grid w-full md:grid-cols-3 gap-3">
+				{documents.map((doc) => (
+					<li className="flex-1" key={doc.id}>
+						<BookDocumentCard {...doc} />
+					</li>
+				))}
+			</ul>
+		</div>
 	);
 }
 
@@ -95,8 +97,7 @@ const dummyDocuments: BookDocument[] = [
 		title: "AI 2041: Ten Visions for Our Future",
 		authors: ["Kai-Fu Lee;Chen Qiufan"],
 		documentType: "book",
-		content:
-			"“What right do you have to share my data link with some insurance company!”",
+		content: "“What right do you have ”",
 		createdAt: new Date("2022-11-14T04:56:00.000Z"),
 		updatedAt: null,
 		isClip: true,
@@ -152,10 +153,8 @@ export default function Home() {
 				<h1 className="">
 					Good {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}
 				</h1>
-				<h2 className="text-2xl">Let Your Mind Wander</h2>
-				<div className="mx-auto max-w-3xl w-full px-1 md:px-2 flex">
-					<BookDocumentSampleGrid documents={documents} />
-				</div>
+				<h2 className="text-2xl">Just Wander</h2>
+				<BookDocumentSampleGrid documents={documents} />
 				<HomeSearchBar />
 			</main>
 		</div>

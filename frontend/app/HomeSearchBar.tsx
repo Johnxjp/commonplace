@@ -74,7 +74,7 @@ export default function HomeSearchBar() {
 	};
 
 	return (
-		<div className="w-full max-w-3xl mx-auto px-1 md:px-2">
+		<div className="w-full max-w-4xl mx-auto px-1 md:px-2">
 			<form onSubmit={handleSubmit} className="mb-8">
 				<div className="flex gap-1 border rounded-lg py-1 px-1">
 					<textarea
@@ -89,7 +89,7 @@ export default function HomeSearchBar() {
 								textareaRef?.current?.scrollHeight > maxHeight
 									? "auto"
 									: "hidden",
-                            height: 10,
+							height: 10,
 						}}
 						onKeyDown={(e) => {
 							if (e.key === "Enter" && !e.shiftKey) {
@@ -103,7 +103,12 @@ export default function HomeSearchBar() {
 						disabled={isLoading || !searchValue.trim()}
 						className="max-h-8 w-8 text-white bg-slate-100 flex items-center justify-center rounded-xl hover:bg-slate-300 disabled:cursor-not-allowed"
 					>
-						<Image src="/send_message.png" width={16} height={16} alt="Search" />
+						<Image
+							src="/send_message.png"
+							width={16}
+							height={16}
+							alt="Search"
+						/>
 					</button>
 				</div>
 			</form>

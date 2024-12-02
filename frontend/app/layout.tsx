@@ -9,7 +9,7 @@ export default function RootLayout({
 	return (
 		<html lang="en">
 			<body>
-				<div className="h-screen w-screen flex flex-row">
+				<div className="min-h-screen w-screen flex flex-row">
 					<NavBar>{children}</NavBar>
 				</div>
 			</body>
