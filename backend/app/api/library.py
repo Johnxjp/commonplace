@@ -47,8 +47,40 @@ def get_user_library(
     Returns:
     - list[models.bookCatalogue]
 
+    TODO: Get last updated at for the item. Min / Max between createdAt and
+    updatedAt.
+
     """
     return operations.get_user_library(db, user_id)
+
+
+@LibraryRouter.get("/documents/{catalogue_id}/annotations")
+def get_user_annotations_for_catalogue_item(
+    catalogue_id: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    TODO: This needs to change because there may be some user items
+    which are not in the reference catalogue.
+    """
+    catalogue_item = operations.get_catalogue_item_by_id(db, catalogue_id)
+    if not catalogue_item:
+        return HTTPException(
+            status_code=404,
+            detail=f"Catalogue item with id {catalogue_id} not found.",
+        )
+
+    catalogue_documents = operations.get_user_annotations_for_catalogue_item(
+        db, user_id, catalogue_id
+    )
+    return {
+        "id": catalogue_id,
+        "title": catalogue_item.title,
+        "authors": catalogue_item.authors,
+        "thumbnail_path": catalogue_item.thumbnail_path,
+        "annotations": catalogue_documents,
+    }
 
 
 @LibraryRouter.get("/documents/{document_id}")

@@ -27,6 +27,16 @@ def get_user_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
     return list(db.scalars(query).all())
 
 
+def get_catalogue_item_by_id(
+    db: Session, catalogue_id: str
+) -> models.BookCatalogue | None:
+    """
+    Retrieve all of a user's books.
+    """
+    query = select(models.BookCatalogue).filter_by(id=catalogue_id).distinct()
+    return db.scalars(query).first()
+
+
 def search_library_by_query(
     db: Session,
     user_id: str,
@@ -272,6 +282,18 @@ def get_user_document_by_id(
     """
     query = select(models.Document).filter_by(id=document_id, user_id=user_id)
     return db.scalars(query).first()
+
+
+def get_user_annotations_for_catalogue_item(
+    db: Session,
+    user_id: str,
+    catalogue_id: str,
+) -> list[models.Document]:
+    """
+    Get all documents belonging to a catalogue item
+    """
+    query = select(models.Document).filter_by(catalogue_id=catalogue_id)
+    return list(db.scalars(query).all())
 
 
 def get_all_user_documents(db: Session, user_id: str) -> list[models.Document]:

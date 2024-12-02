@@ -1,7 +1,8 @@
 "use client";
 
-import Image from "next/image";
+import Image from "next/legacy/image";
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 
 type Item = {
 	id: string;
@@ -41,7 +42,11 @@ type Item = {
 // user logs out or changes something
 function LibraryItem({ item }: { item: Item }) {
 	return (
-		<div className="w-full flex flex-row gap-x-2 hover:cursor-pointer hover:bg-slate-100 p-2">
+		<div className="w-full justify-items-left flex flex-row gap-x-2 hover:cursor-pointer hover:bg-slate-100 p-2">
+			<Link
+				className="h-full w-full absolute"
+				href={`/document/${item.id}`}
+			></Link>
 			<div className="relative min-w-20 max-w-20 min-h-20 max-h-20">
 				<Image
 					className="rounded-md"
@@ -77,6 +82,7 @@ export default function Library() {
 	const [searchTerm, setSearchTerm] = useState("");
 
 	const filteredItems = useMemo(() => {
+		console.log("searchTerm", searchTerm);
 		const normalizedSearch = searchTerm.toLowerCase().trim();
 
 		if (!normalizedSearch) return items;
@@ -92,6 +98,7 @@ export default function Library() {
 	}, [items, searchTerm]);
 
 	useEffect(() => {
+		console.log("Calling server for library items");
 		const serverUrl = "http://localhost:8000";
 		const resourceUrl = serverUrl + "/library";
 		const requestParams = {
@@ -129,6 +136,7 @@ export default function Library() {
 			<div className="mx-auto flex flex-col w-full h-full mt-0 pl-8 items-left pt-12 pr-14">
 				<div className="p-2" id="header">
 					<input
+						id="keyword-filter"
 						type="search"
 						placeholder="Search title and authors..."
 						value={searchTerm}

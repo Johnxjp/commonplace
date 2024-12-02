@@ -7,7 +7,7 @@ from app.config import setup_logging
 setup_logging()
 
 
-app = FastAPI()
+app = FastAPI(debug=True)
 
 # origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
