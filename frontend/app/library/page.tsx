@@ -1,9 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
-
-import BookDocument from "@/definitions";
+import { useEffect, useState, useMemo } from "react";
 
 type Item = {
 	id: string;
@@ -76,6 +74,22 @@ function LibraryItem({ item }: { item: Item }) {
 
 export default function Library() {
 	const [items, setItems] = useState<Item[]>([]);
+	const [searchTerm, setSearchTerm] = useState("");
+
+	const filteredItems = useMemo(() => {
+		const normalizedSearch = searchTerm.toLowerCase().trim();
+
+		if (!normalizedSearch) return items;
+
+		return items.filter((item) => {
+			const titleMatch = item.title.toLowerCase().includes(normalizedSearch);
+			const authorMatch = item.authors.some((author) =>
+				author.toLowerCase().includes(normalizedSearch)
+			);
+
+			return titleMatch || authorMatch;
+		});
+	}, [items, searchTerm]);
 
 	useEffect(() => {
 		const serverUrl = "http://localhost:8000";
@@ -94,10 +108,11 @@ export default function Library() {
 			.then((data) => {
 				console.log(data);
 				const documents: Item[] = data.map((doc) => {
+					const authors = doc.authors ? doc.authors.split(";") : [];
 					return {
 						id: doc.id,
 						title: doc.title,
-						authors: [doc.authors],
+						authors: authors,
 						documentType: doc.document_type,
 						updatedAt: doc.updated_at ? new Date(doc.updated_at) : null,
 						lastAccessedAt: null,
@@ -114,10 +129,18 @@ export default function Library() {
 	return (
 		<div className="min-h-full w-full min-w-0 flex-1">
 			<div className="mx-auto flex flex-col w-full h-full mt-0 pl-8 items-left pt-12 pr-14">
-				<div id="header"></div>
+				<div className="p-2" id="header">
+					<input
+						type="search"
+						placeholder="Search title and authors..."
+						value={searchTerm}
+						onChange={(e) => setSearchTerm(e.target.value)}
+						className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none"
+					/>
+				</div>
 				<div className="flex-1 w-full h-full">
 					<ul className="grid grid-cols-1 divide-y-2">
-						{items.map((item) => (
+						{filteredItems.map((item) => (
 							<li key={item.id}>
 								<LibraryItem item={item} />
 							</li>
