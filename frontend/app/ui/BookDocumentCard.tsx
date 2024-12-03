@@ -9,6 +9,7 @@ export default function BookDocumentCard(document: BookDocumentCardProps) {
 
 	function handleOnClick() {
 		// open the document
+		console.log("Opening document", document.id);
 		router.push(`/annotation/${document.id}`);
 	}
 

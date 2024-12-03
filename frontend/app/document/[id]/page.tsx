@@ -42,9 +42,6 @@ export default function DocumentContainer() {
 					thumbnail_path: data.thumbnail_path,
 				};
 				setContainerDocument(document);
-				{
-					console.log(containerDocument);
-				}
 				console.log(data);
 				const annotations = data["annotations"].map((annotation) => {
 					const authors = annotation.authors
