@@ -13,7 +13,7 @@ from app.config import DB_DRIVER, DB_USERNAME, DB_HOST, DB_NAME, DB_PORT
 from sqlalchemy.engine import URL
 
 from app.db import operations
-from app.db.utils import convert_book_annotation_to_db_document
+from app.db.utils import convert_book_annotation_to_db_clip
 from app.file_handlers.readwise_parser import process_readwise_csv
 
 
@@ -46,10 +46,10 @@ def main(readwise_csv: str):
         user_id = "6d032281-9e69-4753-a455-b48f7cb9b5c9"  # temp user
         for index, ((title, authors), annotations) in enumerate(data.items()):
             print("Processing book ", index + 1, " of ", len(data))
-            print(f"Adding {len(annotations)} to database")
+            print(f"Adding {len(annotations)} annotations to database")
 
             # TODO: Need to normalise books consistently or do smarter search.
-            books = operations.search_user_books(db, user_id, title)
+            books = operations.find_books_in_catalogue(db, title, authors)
             if books:
                 book_item = books[0]
 
@@ -62,9 +62,30 @@ def main(readwise_csv: str):
                     db, title, authors
                 )
 
+            document = operations.search_user_documents(
+                db, user_id, title, authors
+            )
+            if document:
+                document_id = document.id
+            else:
+                print("Creating book document")
+                document = operations.create_book_document_item(
+                    db,
+                    user_id,
+                    title,
+                    authors,
+                    book_item.thumbnail_path,
+                    str(book_item.id),
+                )
+                document_id = document.id
+
             for item in annotations:
-                db_item = convert_book_annotation_to_db_document(
-                    item, user_id, book_item
+                if item.annotation_type != "highlight":
+                    continue
+
+                print("Adding item to ", document_id)
+                db_item = convert_book_annotation_to_db_clip(
+                    item, user_id, str(document_id)
                 )
 
                 try:

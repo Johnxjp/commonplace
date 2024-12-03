@@ -1,11 +1,18 @@
 import Image from "next/image";
 
-export default function ImageThumbnail(
-	width: number,
-	height: number,
-	src: string,
-	alt: string = ""
-): JSX.Element {
+type ImageThumbnailProps = {
+	width: number;
+	height: number;
+	src: string | null;
+	alt?: string;
+};
+
+export default function ImageThumbnail({
+	width,
+	height,
+	src,
+	alt = "",
+}: ImageThumbnailProps) {
 	return (
 		<div
 			className={`relative min-w-${width} max-w-${width} min-h-${height} max-h-${height}`}

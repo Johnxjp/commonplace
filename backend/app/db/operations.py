@@ -11,17 +11,82 @@ from app.db import models
 from app.utils import hash_content
 
 
-def get_user_library(db: Session, user_id: str) -> list[models.BookCatalogue]:
+def get_user_library(db: Session, user_id: str):
+    """
+    This will return a list of all documents in the user's library
+    including metadata about the document.
+
+    The metadata will include:
+    - Number of child annotations / clips
+    - Thumbnail path taken from the catalogue item if it exists
+
+    Return:
+    - id: document_id
+    - title
+    - authors
+    - thumbnail_path
+    - created_at
+    - updated_at
+    - n_clips
+    - catalogue_id
+    """
+    # Create a subquery to count clips per document
+    clips_count = (
+        select(
+            models.Clip.document_id,
+            func.count(models.Clip.id).label("n_clips"),
+        )
+        .group_by(models.Clip.document_id)
+        .subquery()
+    )
+
+    # query that joins with document with BookCatalogue to return
+    query = (
+        select(
+            models.Book.id,
+            models.Book.title,
+            models.Book.authors,
+            models.Book.created_at,
+            models.Book.updated_at,
+            # Use COALESCE to handle documents with no clips
+            func.coalesce(clips_count.c.n_clips, 0).label("n_clips"),
+            # Use COALESCE to prefer catalogue thumbnail over user thumbnail
+            func.coalesce(
+                models.BookCatalogue.thumbnail_path,
+                models.Book.user_thumbnail_path,
+            ).label("thumbnail_path"),
+            models.Book.catalogue_id,
+        )
+        .join(
+            models.BookCatalogue,
+            models.Book.catalogue_id == models.BookCatalogue.id,
+            isouter=True,
+        )
+        .join(
+            clips_count,
+            models.Book.id == clips_count.c.document_id,
+            isouter=True,
+        )
+        .where(models.Book.user_id == user_id)
+        .order_by(models.Book.created_at.desc())
+    )
+
+    return list(db.execute(query).all())
+
+
+def get_user_reference_items(
+    db: Session, user_id: str
+) -> list[models.BookCatalogue]:
     """
     Retrieve all of a user's books.
     """
     query = (
         select(models.BookCatalogue)
         .join(
-            models.Document,
-            models.Document.catalogue_id == models.BookCatalogue.id,
+            models.Book,
+            models.Book.catalogue_id == models.BookCatalogue.id,
         )
-        .where(models.Document.user_id == user_id)
+        .where(models.Book.user_id == user_id)
         .distinct()
     )
     return list(db.scalars(query).all())
@@ -46,10 +111,10 @@ def search_library_by_query(
     query = (
         select(models.BookCatalogue)
         .join(
-            models.Document,
-            models.Document.catalogue_id == models.BookCatalogue.id,
+            models.Book,
+            models.Book.catalogue_id == models.BookCatalogue.id,
         )
-        .where(models.Document.user_id == user_id)
+        .where(models.Book.user_id == user_id)
         .filter(
             models.BookCatalogue.title.icontains(text)
             | models.BookCatalogue.authors.icontains(text)
@@ -69,9 +134,7 @@ def search_book_by_author(
     Returns a list of books that match.
     """
     user_documents = (
-        select(models.Document)
-        .where(models.Document.user_id == user_id)
-        .subquery()
+        select(models.Book).where(models.Book.user_id == user_id).subquery()
     )
 
     query = (
@@ -86,34 +149,23 @@ def search_book_by_author(
     return list(db.scalars(query).all())
 
 
-def find_matching_documents(
+def find_matching_clips(
     db: Session,
     user_id: str,
     text_hash: str,
-    title: Optional[str] = None,
-    authors: Optional[str] = None,
-) -> list[models.Document]:
+    # title: Optional[str] = None,
+    # authors: Optional[str] = None,
+) -> list[models.Clip]:
     """
-    Find documents in the user's library that match the text.
+    Find clips in the user's library that match the text.
     """
-    user_documents = (
-        select(models.Document)
-        .where(models.Document.user_id == user_id)
-        .subquery()
+    query = select(models.Clip).filter_by(
+        user_id=user_id, content_hash=text_hash
     )
-
-    query = (
-        select(models.Document)
-        .join(
-            user_documents,
-            user_documents.c.id == models.Document.id,
-        )
-        .filter_by(content_hash=text_hash)
-    )
-    if title:
-        query = query.filter_by(title=title)
-    if authors:
-        query = query.filter_by(authors=authors)
+    # if title:
+    #     query = query.filter_by(title=title)
+    # if authors:
+    #     query = query.filter_by(authors=authors)
 
     query = query.distinct()
     return list(db.scalars(query).all())
@@ -134,33 +186,46 @@ def find_books_in_catalogue(
     return list(db.scalars(query).all())
 
 
-def search_user_books(
+def search_user_documents(
     db: Session,
     user_id: str,
     title: str,
     authors: Optional[str] = None,
-) -> list[models.BookCatalogue]:
+) -> models.Book | None:
     """
     Search for a book by title and author in the user's collections
 
     TODO: Requires fuzzy matching
     """
-    user_documents = (
-        select(models.Document)
-        .where(models.Document.user_id == user_id)
-        .subquery()
-    )
+    query = select(models.Book).filter_by(title=title, user_id=user_id)
+    if authors:
+        query = query.filter_by(authors=authors)
 
-    query = (
-        select(models.BookCatalogue)
-        .join(
-            user_documents,
-            user_documents.c.catalogue_id == models.BookCatalogue.id,
-        )
-        .filter_by(title=title)
-        .distinct()
+    query = query.distinct()
+    return db.scalars(query).first()
+
+
+def create_book_document_item(
+    db: Session,
+    user_id: str,
+    title: str,
+    authors: Optional[str] = None,
+    user_thumbnail_path: Optional[str] = None,
+    catalogue_id: Optional[str] = None,
+):
+    """
+    Creates and inserts a new book into the database.
+    """
+    book = models.Book(
+        title=title,
+        authors=authors,
+        user_id=user_id,
+        user_thumbnail_path=user_thumbnail_path,
+        catalogue_id=catalogue_id,
     )
-    return list(db.scalars(query).all())
+    db.add(book)
+    db.commit()
+    return book
 
 
 def create_book_catalogue_item(
@@ -185,12 +250,12 @@ def create_book_catalogue_item(
 
 def insert_book_document(
     db: Session, user_id: str, book_id: str, document: schemas.BookAnnotation
-) -> models.Document:
+) -> models.Book:
     """
     Inserts an document into the database.
     Return the whole row of the database for the document.
     """
-    data = models.Document(
+    data = models.Book(
         content=document.content,
         user_id=user_id,
         book_id=book_id,
@@ -212,7 +277,7 @@ def insert_book_all_documents(
     user_id: str,
     book_id: str,
     documents: list[schemas.BookAnnotation],
-) -> list[models.Document]:
+) -> list[models.Book]:
     """
     Inserts all documents into the database.
     Return the whole row of the database for the documents.
@@ -276,11 +341,11 @@ def get_user_document_by_id(
     db: Session,
     user_id: str,
     document_id: str,
-) -> models.Document | None:
+) -> models.Book | None:
     """
     Get a document by its id.
     """
-    query = select(models.Document).filter_by(id=document_id, user_id=user_id)
+    query = select(models.Book).filter_by(id=document_id, user_id=user_id)
     return db.scalars(query).first()
 
 
@@ -288,19 +353,19 @@ def get_user_annotations_for_catalogue_item(
     db: Session,
     user_id: str,
     catalogue_id: str,
-) -> list[models.Document]:
+) -> list[models.Book]:
     """
     Get all documents belonging to a catalogue item
     """
-    query = select(models.Document).filter_by(catalogue_id=catalogue_id)
+    query = select(models.Book).filter_by(catalogue_id=catalogue_id)
     return list(db.scalars(query).all())
 
 
-def get_all_user_documents(db: Session, user_id: str) -> list[models.Document]:
+def get_all_user_documents(db: Session, user_id: str) -> list[models.Book]:
     """
     Returns all document associated with user.
     """
-    query = select(models.Document).filter_by(user_id=user_id)
+    query = select(models.Book).filter_by(user_id=user_id)
     return list(db.scalars(query).all())
 
 
@@ -319,15 +384,15 @@ def get_random_user_documents(
     user_id: str,
     limit: int = 10,
     random_seed: Optional[int] = None,
-) -> list[models.Document]:
+) -> list[models.Book]:
     """
     Returns a random selection of documents from the user's library up
     to the limit.
     """
 
     query = (
-        select(models.Document)
-        .where(models.Document.user_id == user_id)
+        select(models.Book)
+        .where(models.Book.user_id == user_id)
         .order_by(func.random())
         .limit(limit)
     )
@@ -341,24 +406,24 @@ def get_user_documents(
     offset: int = 0,
     sort: Optional[str] = None,
     order_by: str = "desc",
-) -> list[models.Document]:
+) -> list[models.Book]:
     """
-    Assumes sort is a column in the Document table.
+    Assumes sort is a column in the Book table.
     """
     if sort:
-        order = models.Document.__table__.c[sort]
+        order = models.Book.__table__.c[sort]
         order = order.desc() if order_by == "desc" else order.asc()
         query = (
-            select(models.Document)
-            .where(models.Document.user_id == user_id)
+            select(models.Book)
+            .where(models.Book.user_id == user_id)
             .order_by(order)
             .limit(limit)
             .offset(offset)
         )
     else:
         query = (
-            select(models.Document)
-            .where(models.Document.user_id == user_id)
+            select(models.Book)
+            .where(models.Book.user_id == user_id)
             .limit(limit)
             .offset(offset)
         )
@@ -385,14 +450,14 @@ def get_similar_chunks(
     query = (
         select(models.Embedding)
         .join(
-            models.Document,
-            models.Document.id == models.Embedding.source_id,
+            models.Book,
+            models.Book.id == models.Embedding.source_id,
         )
-        .where(models.Document.user_id == user_id)
+        .where(models.Book.user_id == user_id)
     )
 
     if exclude_documents:
-        query = query.where(models.Document.id.notin_(exclude_documents))
+        query = query.where(models.Book.id.notin_(exclude_documents))
     if exclude_chunks:
         query = query.where(models.Embedding.id.notin_(exclude_chunks))
 

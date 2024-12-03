@@ -17,7 +17,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.config import EMBEDDING_DIMENSIONS
@@ -53,8 +53,48 @@ class User(Base):
     # )
 
 
+class Book(Base):
+    """
+    Table to store parent book information.
+    """
+
+    __tablename__ = "book"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        primary_key=True,
+        unique=True,
+        nullable=False,
+        server_default=text("uuid_generate_v4()"),
+    )
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    authors: Mapped[str] = mapped_column(String, nullable=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="cascade"), nullable=False
+    )
+    user_thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
+
+    catalogue_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("book_catalogue.id"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    clips: Mapped[list["Clip"]] = relationship(back_populates="document")
+
+    # accessed_at: Mapped[datetime] = mapped_column(
+    #     DateTime(timezone=True), nullable=True
+    # )
+
+    UniqueConstraint(user_id, title, authors, name="unique_book")
+
+
 class BookCatalogue(Base):
-    """Reference table to store information about books. For use in things
+    """
+    Reference table to store information about books. For use in things
     like disambiguation.
     """
 
@@ -85,13 +125,12 @@ class BookCatalogue(Base):
         )
 
 
-class Document(Base):
+class Clip(Base):
     """
-    Table for storing documents. A document can be an entire book or a clip
-    from a book.
+    Table for storing clips from a parent document
     """
 
-    __tablename__ = "document"
+    __tablename__ = "clip"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID,
@@ -105,10 +144,9 @@ class Document(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("user.id", ondelete="cascade")
     )
-    title: Mapped[str] = mapped_column(String, nullable=False)
-    authors: Mapped[str] = mapped_column(String, nullable=True)
-    # Book, Video, Article, PDF
-    document_type: Mapped[str] = mapped_column(String, nullable=False)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("book.id", ondelete="cascade")
+    )
 
     # Clips can be created separately from the book
     # BookDocument entirely should be same as Document row
@@ -123,18 +161,12 @@ class Document(Base):
 
     # clip specified as location or page depending on type
     # This can be used to add comments or marginalia to this table too
-    is_clip: Mapped[str] = mapped_column(Boolean, nullable=False)
     location_type: Mapped[str] = mapped_column(String, nullable=True)
     clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
     clip_end: Mapped[int] = mapped_column(Integer, nullable=True)
 
-    catalogue_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("book_catalogue.id"), nullable=True
-    )
-
-    UniqueConstraint(
-        title, authors, user_id, content_hash, name="unique_document"
-    )
+    document: Mapped["Book"] = relationship(back_populates="clips")
+    UniqueConstraint(user_id, content_hash, name="unique_clip")
 
     # create the repr
     def __repr__(self) -> str:
@@ -205,7 +237,7 @@ class Embedding(Base):
     )
 
     source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("document.id", ondelete="cascade"), nullable=False
+        UUID, ForeignKey("clip.id", ondelete="cascade"), nullable=False
     )
 
     # chunk_content

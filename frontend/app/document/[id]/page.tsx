@@ -84,6 +84,7 @@ export default function DocumentContainer() {
 							<p className="italic text-md">
 								{containerDocument.authors.join(", ")}
 							</p>
+							<p>{`${annotations.length} Highlight` + `${annotations.length > 1 ? 's' : ''}`}</p>
 						</div>
 					</div>
 				</div>

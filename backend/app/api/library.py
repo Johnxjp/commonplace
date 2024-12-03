@@ -11,13 +11,16 @@ Endpoints related to documents:
 TODO: How to do this by user?
 
 """
+from uuid import UUID
 
+from datetime import datetime
 import logging
 from typing import Optional
 
 # from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from app.api.utils import get_current_user
@@ -30,28 +33,78 @@ logger = logging.getLogger(__name__)
 LibraryRouter = APIRouter()
 
 
+class LibraryItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    authors: str | None
+    created_at: datetime
+    updated_at: datetime | None
+    n_clips: int
+    thumbnail_path: str | None
+    catalogue_id: UUID | None
+
+
 @LibraryRouter.get("/library")
 def get_user_library(
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
-):
+) -> list[LibraryItem]:
     """
-    Returns a list of all parent documents in the user's library.
+    This will return a list of all documents in the user's library
+    including metadata about the document.
 
-    Parameters:
-    - user_id: str
-        The user's unique identifier
-    - db: Session
-        The database session
+    The metadata will include:
+    - Number of child annotations / clips
+    - Thumbnail path taken from the catalogue item if it exists
 
-    Returns:
-    - list[models.bookCatalogue]
-
-    TODO: Get last updated at for the item. Min / Max between createdAt and
-    updatedAt.
-
+    Return:
+    - id: document_id
+    - title
+    - authors
+    - thumbnail_path
+    - created_at
+    - updated_at
+    - n_clips
+    - catalogue_id
     """
-    return operations.get_user_library(db, user_id)
+    try:
+        items = [
+            LibraryItem.model_validate(item)
+            for item in operations.get_user_library(db, user_id)
+        ]
+        return items
+    except Exception as e:
+        logger.error(f"Error getting user library: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error getting user library.",
+        )
+
+
+# @LibraryRouter.get("/library")
+# def get_user_library(
+#     user_id: str = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     """
+#     Returns a list of all parent documents in the user's library.
+
+#     Parameters:
+#     - user_id: str
+#         The user's unique identifier
+#     - db: Session
+#         The database session
+
+#     Returns:
+#     - list[models.bookCatalogue]
+
+#     TODO: Get last updated at for the item. Min / Max between createdAt and
+#     updatedAt.
+
+#     """
+#     return operations.get_user_library(db, user_id)
 
 
 @LibraryRouter.get("/documents/{catalogue_id}/annotations")

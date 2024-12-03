@@ -1,14 +1,14 @@
 "use client";
 
-import Image from "next/legacy/image";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+
+import ImageThumbnail from "@/ui/ImageThumbnail";
 
 type Item = {
 	id: string;
 	title: string;
 	authors: string[];
-	documentType: string;
 	updatedAt: Date;
 	lastAccessedAt: Date | null;
 	clipCount: number;
@@ -20,7 +20,6 @@ type Item = {
 // 		id: "f82befef-c1fe-43e6-8d27-39ea77f65a31",
 // 		title: "AI 2041: Ten Visions for Our Future",
 // 		authors: ["Kai-Fu Lee", "Chen Qiufan"],
-// 		documentType: "book",
 // 		updatedAt: new Date("2022-11-14T04:56:00.000Z"),
 // 		clipCount: 5,
 // 		lastAccessedAt: null,
@@ -30,7 +29,6 @@ type Item = {
 // 		id: "f82befef-c1fe-43e6-8d27-39ea77f64a31",
 // 		title: "AI 2041",
 // 		authors: ["Kai-Fu Lee"],
-// 		documentType: "book",
 // 		updatedAt: new Date("2022-11-14T04:56:00.000Z"),
 // 		clipCount: 10,
 // 		lastAccessedAt: new Date("2022-11-14T04:56:00.000Z"),
@@ -47,22 +45,17 @@ function LibraryItem({ item }: { item: Item }) {
 				className="h-full w-full absolute"
 				href={`/document/${item.id}`}
 			></Link>
-			<div className="relative min-w-20 max-w-20 min-h-20 max-h-20">
-				<Image
-					className="rounded-md"
-					src={item.thumbnailUrl !== null ? item.thumbnailUrl : "/vibrant.jpg"}
-					objectFit="cover"
-					layout="fill"
-					alt={item.title}
-					sizes="20vw"
-				/>
-			</div>
+			<ImageThumbnail
+				src={item.thumbnailUrl ? item.thumbnailUrl : "/vibrant.jpg"}
+				alt={item.title}
+				height={20}
+				width={20}
+			/>
 			<div className="flex min-h-full flex-col w-full">
 				<div>
 					<h2 className="font-bold line-clamp-1">{item.title}</h2>
 					<p className="italic text-sm">{item.authors.join(", ")}</p>
 				</div>
-				{/* <p>{item.documentType}</p> */}
 				<div className="text-sm flex grow flex-row gap-x-2 place-items-end">
 					<p>{item.clipCount} Annotations</p>
 					{item.updatedAt !== null ? (
@@ -115,15 +108,15 @@ export default function Library() {
 			.then((data) => {
 				const documents: Item[] = data.map((doc) => {
 					const authors = doc.authors ? doc.authors.split(";") : [];
+					const thumbnailUrl = (doc.thumbnail_path === "" || doc.thumbnail_path === null) ? null : doc.thumbnail_path;
 					return {
 						id: doc.id,
 						title: doc.title,
 						authors: authors,
-						documentType: doc.document_type,
 						updatedAt: doc.updated_at ? new Date(doc.updated_at) : null,
 						lastAccessedAt: null,
-						clipCount: 10,
-						thumbnailUrl: doc.thumbnail_path,
+						clipCount: doc.n_clips,
+						thumbnailUrl: thumbnailUrl,
 					};
 				});
 				setItems(documents);

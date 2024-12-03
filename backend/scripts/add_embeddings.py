@@ -56,13 +56,13 @@ def main(
             zip(text_chunks, source_text, embeddings),
             total=len(text_chunks),
         ):
-            documents = operations.find_matching_documents(
+            clips = operations.find_matching_clips(
                 db, user_id, hash_content(source)
             )
-            if not documents:
-                print("Could not find source document for chunk '{chunk}'.")
+            if not clips:
+                print("Could not find source for chunk '{chunk}'.")
 
-            for document in documents:
+            for document in clips:
                 source_id = document.id
                 embedding_model = models.Embedding(
                     source_id=source_id,
