@@ -14,7 +14,13 @@ function BookDocumentSampleGrid({ documents }: { documents: BookDocument[] }) {
 			<ul className="grid w-full md:grid-cols-3 gap-3">
 				{documents.map((doc) => (
 					<li className="flex-1" key={doc.id}>
-						<BookDocumentCard {...doc} />
+						<BookDocumentCard
+							document={doc}
+							clampContent={true}
+							showTitle={true}
+							showAuthors={false}
+							showMetadata={false}
+						/>
 					</li>
 				))}
 			</ul>

@@ -1,10 +1,23 @@
-import BookDocument from "@/definitions";
-import { capitalizeFirstLetter } from "@/utils";
 import { useRouter } from "next/navigation";
 
-type BookDocumentCardProps = BookDocument;
+import { capitalizeFirstLetter } from "@/utils";
+import BookDocument from "@/definitions";
 
-export default function BookDocumentCard(document: BookDocumentCardProps) {
+type BookDocumentCardProps = {
+	document: BookDocument;
+	clampContent: boolean;
+	showMetadata?: boolean;
+	showTitle?: boolean; // Title
+	showAuthors?: boolean; // Authors only
+};
+
+export default function BookDocumentCard({
+	document,
+	clampContent = true,
+	showMetadata = false,
+	showTitle = false,
+	showAuthors = false,
+}: BookDocumentCardProps) {
 	const router = useRouter();
 
 	function handleOnClick() {
@@ -27,15 +40,48 @@ export default function BookDocumentCard(document: BookDocumentCardProps) {
 		return capitalizeFirstLetter(content);
 	}
 
+	function renderTitle() {
+		if (showTitle) {
+			return <h2 className=" text-sm line-clamp-1">{document.title}</h2>;
+		}
+	}
+	function renderAuthors() {
+		if (showAuthors) {
+			return (
+				<p className="text-xs italic line-clamp-1">
+					{document.authors.join(", ")}
+				</p>
+			);
+		}
+	}
+
+	function renderMetadata() {
+		// TODO
+		if (showMetadata) return <></>;
+	}
+
+	function renderContent() {
+		if (!clampContent) {
+			return (
+				<p className="text-sm italic">{formatContent(document.content)}</p>
+			);
+		}
+		return (
+			<p className="text-sm italic line-clamp-3">
+				{formatContent(document.content)}
+			</p>
+		);
+	}
+
 	return (
 		<div
 			onClick={() => handleOnClick()}
 			className="h-full w-full border border-border-300 hover:border-border-200 group relative flex cursor-pointer flex-col gap-1.5 rounded-xl py-5 px-6 transition-all ease-in-out hover:shadow-sm active:scale-[0.98] md:gap-4"
 		>
-			<h2 className=" text-sm line-clamp-1">{document.title}</h2>
-			<p className="text-sm italic line-clamp-3">
-				{formatContent(document.content)}
-			</p>
+			{renderTitle()}
+			{renderAuthors()}
+			{renderContent()}
+			{renderMetadata()}
 		</div>
 	);
 }

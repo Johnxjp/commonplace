@@ -2,9 +2,12 @@
 // It may also contain full text of the document
 "use client";
 
-import BookDocument from "@/definitions";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import BookDocument from "@/definitions";
+import ImageThumbnail from "@/ui/ImageThumbnail";
+import BookDocumentCard from "@/ui/BookDocumentCard";
 
 type containerDocument = {
 	id: string;
@@ -15,7 +18,7 @@ type containerDocument = {
 
 export default function DocumentContainer() {
 	const [containerDocument, setContainerDocument] =
-		useState<containerDocument | null>(null);
+		useState<containerDocument>();
 	const [annotations, setAnnotations] = useState<BookDocument[]>([]);
 	const params = useParams();
 
@@ -68,22 +71,32 @@ export default function DocumentContainer() {
 			.catch((err) => console.error(err));
 	}, [params.id]);
 
-	return containerDocument === null ? (
-		<></>
-	) : (
-		<div className="flex flex-col items-center">
-			<h1>{containerDocument.title}</h1>
-			<h2>{containerDocument.authors.join(", ")}</h2>
-			<div>
-				<ul className="gap-y-2">
-					{annotations.map((annotation) => (
-						<li key={annotation.id}>
-							{/* <h3>{annotation.title}</h3> */}
-							<p>{annotation.content}</p>
-						</li>
-					))}
-				</ul>
+	return (
+		containerDocument && (
+			<div className="mx-auto flex flex-col items-center w-full h-full pl-8 pt-20 pr-14 max-w-3xl">
+				<div className="flex flex-row gap-4 w-full">
+					{ImageThumbnail(20, 20, "/vibrant.jpg", containerDocument.title)}
+					<div className="flex min-h-full flex-col w-full">
+						<div>
+							<h2 className="text-2xl font-bold line-clamp-1">
+								{containerDocument.title}
+							</h2>
+							<p className="italic text-md">
+								{containerDocument.authors.join(", ")}
+							</p>
+						</div>
+					</div>
+				</div>
+				<div className="flex w-full justify-left flex-col">
+					<ul className="pt-8 pb-8 flex flex-col gap-4">
+						{annotations?.map((doc) => (
+							<li key={doc.id}>
+								<BookDocumentCard clampContent={false} document={doc} />
+							</li>
+						))}
+					</ul>
+				</div>
 			</div>
-		</div>
+		)
 	);
 }

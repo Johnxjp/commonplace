@@ -97,7 +97,7 @@ export default function Document() {
 					<ul className="pt-8 pb-8 flex flex-col gap-4">
 						{similarDocuments?.map((doc) => (
 							<li key={doc.id}>
-								<BookDocumentCard {...doc} />
+								<BookDocumentCard clampContent={false} document={doc} showTitle={true} />
 							</li>
 						))}
 					</ul>
