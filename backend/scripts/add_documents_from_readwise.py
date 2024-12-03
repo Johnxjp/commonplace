@@ -69,7 +69,7 @@ def main(readwise_csv: str):
                 document_id = document.id
             else:
                 print("Creating book document")
-                document = operations.create_book_document_item(
+                document = operations.create_book(
                     db,
                     user_id,
                     title,

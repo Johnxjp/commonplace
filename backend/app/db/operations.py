@@ -12,31 +12,15 @@ from app.utils import hash_content
 
 
 def get_user_library(db: Session, user_id: str):
-    """
-    This will return a list of all documents in the user's library
-    including metadata about the document.
-
-    The metadata will include:
-    - Number of child annotations / clips
-    - Thumbnail path taken from the catalogue item if it exists
-
-    Return:
-    - id: document_id
-    - title
-    - authors
-    - thumbnail_path
-    - created_at
-    - updated_at
-    - n_clips
-    - catalogue_id
-    """
-    # Create a subquery to count clips per document
+    """Returns list of all books in user's library with metadata."""
     clips_count = (
-        select(
-            models.Clip.document_id,
-            func.count(models.Clip.id).label("n_clips"),
+        select(models.Book.id, func.count(models.Clip.id).label("n_clips"))
+        .join(
+            models.Clip,
+            models.Book.id == models.Clip.document_id,
+            isouter=True,
         )
-        .group_by(models.Clip.document_id)
+        .group_by(models.Book.id)
         .subquery()
     )
 
@@ -48,9 +32,7 @@ def get_user_library(db: Session, user_id: str):
             models.Book.authors,
             models.Book.created_at,
             models.Book.updated_at,
-            # Use COALESCE to handle documents with no clips
             func.coalesce(clips_count.c.n_clips, 0).label("n_clips"),
-            # Use COALESCE to prefer catalogue thumbnail over user thumbnail
             func.coalesce(
                 models.BookCatalogue.thumbnail_path,
                 models.Book.user_thumbnail_path,
@@ -62,11 +44,7 @@ def get_user_library(db: Session, user_id: str):
             models.Book.catalogue_id == models.BookCatalogue.id,
             isouter=True,
         )
-        .join(
-            clips_count,
-            models.Book.id == clips_count.c.document_id,
-            isouter=True,
-        )
+        .join(clips_count, models.Book.id == clips_count.c.id, isouter=True)
         .where(models.Book.user_id == user_id)
         .order_by(models.Book.created_at.desc())
     )
@@ -74,22 +52,42 @@ def get_user_library(db: Session, user_id: str):
     return list(db.execute(query).all())
 
 
-def get_user_reference_items(
-    db: Session, user_id: str
-) -> list[models.BookCatalogue]:
+def get_user_book_by_id(
+    db: Session,
+    user_id: str,
+    book_id: str,
+) -> models.Book | None:
     """
-    Retrieve all of a user's books.
+    Get a document by its id.
     """
+    query = select(models.Book).filter_by(id=book_id, user_id=user_id)
+    return db.scalars(query).first()
+
+
+def get_clips_by_book_id(
+    db: Session, user_id: str, book_id: str
+) -> list[models.Clip]:
+    """Get all clips for a specific book."""
     query = (
-        select(models.BookCatalogue)
-        .join(
-            models.Book,
-            models.Book.catalogue_id == models.BookCatalogue.id,
-        )
-        .where(models.Book.user_id == user_id)
-        .distinct()
+        select(models.Clip)
+        .where(models.Clip.user_id == user_id)
+        .where(models.Clip.document_id == book_id)
     )
     return list(db.scalars(query).all())
+
+
+def get_user_clip_by_id(
+    db: Session, user_id: str, clip_id: str
+) -> models.Clip | None:
+    """
+    Get a clip by its id.
+    """
+    query = (
+        select(models.Clip)
+        .where(models.Clip.id == clip_id)
+        .where(models.Clip.user_id == user_id)
+    )
+    return db.scalar(query)
 
 
 def get_catalogue_item_by_id(
@@ -102,10 +100,10 @@ def get_catalogue_item_by_id(
     return db.scalars(query).first()
 
 
-def search_library_by_query(
+def find_item_with_keyword(
     db: Session,
     user_id: str,
-    text: str,
+    keywords: str,
 ) -> list[models.BookCatalogue]:
     """Search title and authors for any matching keywords"""
     query = (
@@ -116,34 +114,9 @@ def search_library_by_query(
         )
         .where(models.Book.user_id == user_id)
         .filter(
-            models.BookCatalogue.title.icontains(text)
-            | models.BookCatalogue.authors.icontains(text)
+            models.BookCatalogue.title.icontains(keywords)
+            | models.BookCatalogue.authors.icontains(keywords)
         )
-        .distinct()
-    )
-    return list(db.scalars(query).all())
-
-
-def search_book_by_author(
-    db: Session,
-    user_id: str,
-    authors: str,
-) -> list[models.BookCatalogue]:
-    """
-    Search for a book by author in the database.
-    Returns a list of books that match.
-    """
-    user_documents = (
-        select(models.Book).where(models.Book.user_id == user_id).subquery()
-    )
-
-    query = (
-        select(models.BookCatalogue)
-        .join(
-            user_documents,
-            user_documents.c.catalogue_id == models.BookCatalogue.id,
-        )
-        .filter_by(authors=authors)
         .distinct()
     )
     return list(db.scalars(query).all())
@@ -153,25 +126,18 @@ def find_matching_clips(
     db: Session,
     user_id: str,
     text_hash: str,
-    # title: Optional[str] = None,
-    # authors: Optional[str] = None,
 ) -> list[models.Clip]:
     """
-    Find clips in the user's library that match the text.
+    Find clips in the user's library that match the text hash
     """
     query = select(models.Clip).filter_by(
         user_id=user_id, content_hash=text_hash
     )
-    # if title:
-    #     query = query.filter_by(title=title)
-    # if authors:
-    #     query = query.filter_by(authors=authors)
-
     query = query.distinct()
     return list(db.scalars(query).all())
 
 
-def find_books_in_catalogue(
+def find_catalogue_books(
     db: Session,
     title: str,
     authors: Optional[str] = None,
@@ -179,10 +145,13 @@ def find_books_in_catalogue(
     """
     Find books in the catalogue by title and authors.
 
-    TODO: Add author filters
     TODO: Add fuzzy matching on title
     """
-    query = select(models.BookCatalogue).filter_by(title=title).distinct()
+    query = select(models.BookCatalogue).filter_by(title=title)
+    if authors:
+        query = query.filter_by(authors=authors)
+
+    query = query.distinct()
     return list(db.scalars(query).all())
 
 
@@ -205,7 +174,7 @@ def search_user_documents(
     return db.scalars(query).first()
 
 
-def create_book_document_item(
+def create_book(
     db: Session,
     user_id: str,
     title: str,
@@ -228,6 +197,31 @@ def create_book_document_item(
     return book
 
 
+def create_clip(
+    db: Session,
+    user_id: str,
+    document_id: str,
+    content: str,
+    content_hash: str,
+    location_type: Optional[str] = None,
+    clip_start: Optional[int] = None,
+    clip_end: Optional[int] = None,
+) -> models.Clip:
+    """Create a new clip for a book."""
+    clip = models.Clip(
+        user_id=user_id,
+        document_id=document_id,
+        content=content,
+        content_hash=content_hash,
+        location_type=location_type,
+        clip_start=clip_start,
+        clip_end=clip_end,
+    )
+    db.add(clip)
+    db.commit()
+    return clip
+
+
 def create_book_catalogue_item(
     db: Session,
     title: str,
@@ -237,7 +231,6 @@ def create_book_catalogue_item(
     """
     Creates and inserts a new book into the database.
     """
-
     book = models.BookCatalogue(
         title=title,
         authors=authors,
@@ -246,30 +239,6 @@ def create_book_catalogue_item(
     db.add(book)
     db.commit()
     return book
-
-
-def insert_book_document(
-    db: Session, user_id: str, book_id: str, document: schemas.BookAnnotation
-) -> models.Book:
-    """
-    Inserts an document into the database.
-    Return the whole row of the database for the document.
-    """
-    data = models.Book(
-        content=document.content,
-        user_id=user_id,
-        book_id=book_id,
-        is_clip=True,
-        title=document.title,
-        authors=document.authors,
-        location_type=document.location_type,
-        clip_start=document.location_start,
-        clip_end=document.location_end,
-        content_hash=hash_content(document.content),
-    )
-    db.add(data)
-    db.commit()
-    return data
 
 
 def insert_book_all_documents(
@@ -287,7 +256,16 @@ def insert_book_all_documents(
     inserted_rows = []
     for doc in documents:
         try:
-            r = insert_book_document(db, user_id, book_id, doc)
+            r = create_clip(
+                db,
+                user_id,
+                book_id,
+                doc.content,
+                hash_content(doc.content),
+                doc.location_type,
+                doc.location_start,
+                doc.location_end,
+            )
             inserted_rows.append(r)
         except IntegrityError as e:
             print(f"Could not insert {doc} for {book_id}")
@@ -337,18 +315,6 @@ def insert_embeddings(
     return inserted_rows
 
 
-def get_user_document_by_id(
-    db: Session,
-    user_id: str,
-    document_id: str,
-) -> models.Book | None:
-    """
-    Get a document by its id.
-    """
-    query = select(models.Book).filter_by(id=document_id, user_id=user_id)
-    return db.scalars(query).first()
-
-
 def get_user_annotations_for_catalogue_item(
     db: Session,
     user_id: str,
@@ -379,51 +345,50 @@ def get_document_chunks(
     return list(db.scalars(query).all())
 
 
-def get_random_user_documents(
+def get_random_user_clips(
     db: Session,
     user_id: str,
     limit: int = 10,
-    random_seed: Optional[int] = None,
-) -> list[models.Book]:
+) -> list[models.Clip]:
     """
     Returns a random selection of documents from the user's library up
     to the limit.
     """
 
     query = (
-        select(models.Book)
-        .where(models.Book.user_id == user_id)
+        select(models.Clip)
+        .where(models.Clip.user_id == user_id)
         .order_by(func.random())
         .limit(limit)
     )
     return list(db.scalars(query).all())
 
 
-def get_user_documents(
+def get_user_clips(
     db: Session,
     user_id: str,
     limit: int = 10,
     offset: int = 0,
     sort: Optional[str] = None,
     order_by: str = "desc",
-) -> list[models.Book]:
+) -> list[models.Clip]:
     """
     Assumes sort is a column in the Book table.
     """
     if sort:
-        order = models.Book.__table__.c[sort]
+        order = models.Clip.__table__.c[sort]
         order = order.desc() if order_by == "desc" else order.asc()
         query = (
-            select(models.Book)
-            .where(models.Book.user_id == user_id)
+            select(models.Clip)
+            .where(models.Clip.user_id == user_id)
             .order_by(order)
             .limit(limit)
             .offset(offset)
         )
     else:
         query = (
-            select(models.Book)
-            .where(models.Book.user_id == user_id)
+            select(models.Clip)
+            .where(models.Clip.user_id == user_id)
             .limit(limit)
             .offset(offset)
         )
@@ -450,14 +415,14 @@ def get_similar_chunks(
     query = (
         select(models.Embedding)
         .join(
-            models.Book,
-            models.Book.id == models.Embedding.source_id,
+            models.Clip,
+            models.Clip.id == models.Embedding.source_id,
         )
-        .where(models.Book.user_id == user_id)
+        .where(models.Clip.user_id == user_id)
     )
 
     if exclude_documents:
-        query = query.where(models.Book.id.notin_(exclude_documents))
+        query = query.where(models.Clip.id.notin_(exclude_documents))
     if exclude_chunks:
         query = query.where(models.Embedding.id.notin_(exclude_chunks))
 

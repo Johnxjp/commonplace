@@ -108,7 +108,10 @@ export default function Library() {
 			.then((data) => {
 				const documents: Item[] = data.map((doc) => {
 					const authors = doc.authors ? doc.authors.split(";") : [];
-					const thumbnailUrl = (doc.thumbnail_path === "" || doc.thumbnail_path === null) ? null : doc.thumbnail_path;
+					const thumbnailUrl =
+						doc.thumbnail_path === "" || doc.thumbnail_path === null
+							? null
+							: doc.thumbnail_path;
 					return {
 						id: doc.id,
 						title: doc.title,
@@ -127,6 +130,7 @@ export default function Library() {
 	return (
 		<div className="min-h-full w-full min-w-0 flex-1">
 			<div className="mx-auto flex flex-col w-full h-full mt-0 pl-8 items-left pt-12 pr-14">
+				<p>Total Items: {items.length}</p>
 				<div className="p-2" id="header">
 					<input
 						id="keyword-filter"

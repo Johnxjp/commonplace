@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 import traceback
 
 from app.api.utils import get_current_user
-from app.db import get_db, operations as db_operations
+from app.db import get_db, operations
 from app.file_handlers import process_kindle_file, process_readwise_csv
 from app.file_handlers.readwise_parser import validate_readwise_csv
 
@@ -80,9 +80,9 @@ async def import_book_annotations_from_readwise(
 
         new_inserts = []
         for (title, authors), annotations in contents.items():
-            books = db_operations.find_books_in_catalogue(db, title, authors)
+            books = operations.find_catalogue_books(db, title, authors)
             if not books:
-                book = db_operations.create_book_catalogue_item(
+                book = operations.create_book_catalogue_item(
                     db, title, authors
                 )
                 print(f"Added book to catalogue:\n {book}")
@@ -90,7 +90,7 @@ async def import_book_annotations_from_readwise(
                 # Just get first for now e.g. if multiple editions
                 book = books[0]
 
-            new_inserts = db_operations.insert_book_all_documents(
+            new_inserts = operations.insert_book_all_documents(
                 db, current_user, str(book.id), annotations
             )
             n_new_annos += len(new_inserts)
@@ -163,13 +163,13 @@ async def import_kindle_annotations(
                 "unique books"
             )
             for (title, authors), annotations in grouped_annotations.items():
-                books = db_operations.find_books_in_catalogue(
+                books = operations.find_catalogue_books(
                     db,
                     title,
                     authors,
                 )
                 if len(books) == 0:
-                    book = db_operations.create_book_catalogue_item(
+                    book = operations.create_book_catalogue_item(
                         db, title, authors, thumbnail_path=None
                     )
                     print(f"Added book to catalogue:\n {book}")
@@ -177,7 +177,7 @@ async def import_kindle_annotations(
                     # Just get first for now e.g. if multiple editions
                     book = books[0]
 
-                new_inserts = db_operations.insert_book_all_documents(
+                new_inserts = operations.insert_book_all_documents(
                     db, current_user, str(book.id), annotations
                 )
                 n_new_annos += len(new_inserts)

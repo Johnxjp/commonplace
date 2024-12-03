@@ -3,7 +3,7 @@ import Image from "next/image";
 type ImageThumbnailProps = {
 	width: number;
 	height: number;
-	src: string | null;
+	src: string;
 	alt?: string;
 };
 

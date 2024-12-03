@@ -23,7 +23,7 @@ export default function BookDocumentCard({
 	function handleOnClick() {
 		// open the document
 		console.log("Opening document", document.id);
-		router.push(`/annotation/${document.id}`);
+		router.push(`/clip/${document.id}`);
 	}
 
 	function formatContent(content: string): string {

@@ -11,6 +11,7 @@ Endpoints related to documents:
 TODO: How to do this by user?
 
 """
+
 from uuid import UUID
 
 from datetime import datetime
@@ -54,20 +55,6 @@ def get_user_library(
     """
     This will return a list of all documents in the user's library
     including metadata about the document.
-
-    The metadata will include:
-    - Number of child annotations / clips
-    - Thumbnail path taken from the catalogue item if it exists
-
-    Return:
-    - id: document_id
-    - title
-    - authors
-    - thumbnail_path
-    - created_at
-    - updated_at
-    - n_clips
-    - catalogue_id
     """
     try:
         items = [
@@ -83,57 +70,52 @@ def get_user_library(
         )
 
 
-# @LibraryRouter.get("/library")
-# def get_user_library(
-#     user_id: str = Depends(get_current_user),
-#     db: Session = Depends(get_db),
-# ):
-#     """
-#     Returns a list of all parent documents in the user's library.
+@LibraryRouter.get("/documents/{document_id}/annotations")
+def get_user_document_annotations(
+    document_id: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Returns user annotations and metadata about the book"""
+    book = operations.get_user_book_by_id(db, user_id, document_id)
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Book with {document_id=} belonging to {user_id=} not found."
+            ),
+        )
 
-#     Parameters:
-#     - user_id: str
-#         The user's unique identifier
-#     - db: Session
-#         The database session
-
-#     Returns:
-#     - list[models.bookCatalogue]
-
-#     TODO: Get last updated at for the item. Min / Max between createdAt and
-#     updatedAt.
-
-#     """
-#     return operations.get_user_library(db, user_id)
+    annotations = operations.get_clips_by_book_id(db, user_id, document_id)
+    return {
+        "annotations": annotations,
+        "total": len(annotations),
+        "source": book,
+    }
 
 
-@LibraryRouter.get("/documents/{catalogue_id}/annotations")
-def get_user_annotations_for_catalogue_item(
-    catalogue_id: str,
+@LibraryRouter.get("/clip/{clip_id}")
+def get_user_clip(
+    clip_id: str,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    TODO: This needs to change because there may be some user items
-    which are not in the reference catalogue.
+    Get a clip by its id. Return with book information
     """
-    catalogue_item = operations.get_catalogue_item_by_id(db, catalogue_id)
-    if not catalogue_item:
-        return HTTPException(
-            status_code=404,
-            detail=f"Catalogue item with id {catalogue_id} not found.",
-        )
-
-    catalogue_documents = operations.get_user_annotations_for_catalogue_item(
-        db, user_id, catalogue_id
+    # No unified source table so need to check all document source tables
+    clip = operations.get_user_clip_by_id(
+        db,
+        user_id,
+        clip_id,
     )
-    return {
-        "id": catalogue_id,
-        "title": catalogue_item.title,
-        "authors": catalogue_item.authors,
-        "thumbnail_path": catalogue_item.thumbnail_path,
-        "annotations": catalogue_documents,
-    }
+    # Join with document to get book information
+    if not clip:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Clip with {id=} belonging to {user_id=} not found.",
+        )
+    return {}
 
 
 @LibraryRouter.get("/documents/{document_id}")
@@ -148,7 +130,7 @@ def get_user_document(
     """
 
     # No unified source table so need to check all document source tables
-    document = operations.get_user_document_by_id(
+    document = operations.get_user_book_by_id(
         db,
         user_id,
         document_id,
@@ -168,29 +150,23 @@ def get_documents(
     sort: Optional[str] = None,
     order_by: Optional[str] = "desc",
     random: bool = False,
-    random_seed: Optional[int] = None,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Get all documents in the database.
-
-    method: specifies order to return documents
-
-    TODO: Check sort filter is actually valid by comparing to attributes in
-    documents. What to return though? Just ignore?
     """
     if random:
-        return operations.get_random_user_documents(
-            db, user_id=user_id, limit=limit, random_seed=random_seed
+        return operations.get_random_user_clips(
+            db, user_id=user_id, limit=limit
         )
 
-    table_columns = models.Document.__table__.columns.keys()
+    table_columns = models.Book.__table__.columns.keys()
     if sort and sort not in table_columns:
         return HTTPException(
             status_code=400,
             detail=(
-                f"Invalid sort field '{sort}' for {models.Document.__name__}."
+                f"Invalid sort field '{sort}' for {models.Book.__name__}."
             ),
         )
 
@@ -198,7 +174,7 @@ def get_documents(
         print(f"Invalid {order_by=} value. Setting to default of 'desc'.")
         order_by = "desc"
 
-    return operations.get_user_documents(
+    return operations.get_user_clips(
         db,
         user_id=user_id,
         limit=limit,
@@ -208,9 +184,9 @@ def get_documents(
     )
 
 
-@LibraryRouter.get("/documents/{document_id}/similar")
-def get_similar_documents(
-    document_id: str,
+@LibraryRouter.get("/clips/{clip_id}/similar")
+def get_similar_clips(
+    clip_id: str,
     topk: int = 5,
     threshold: float = 0.5,
     user_id: str = Depends(get_current_user),
@@ -220,39 +196,49 @@ def get_similar_documents(
     Get semantically similar documents to a given document based on the
     content and return up to topk similar documents.
     """
-    if not operations.get_user_document_by_id(db, user_id, document_id):
+    if not operations.get_user_clip_by_id(db, user_id, clip_id):
         return HTTPException(
             status_code=404,
             detail=(
-                f"Document with {document_id=} "
-                f"belonging to {user_id=} not found.",
+                f"Clip with {clip_id=} " f"belonging to {user_id=} not found.",
             ),
         )
 
-    similar_document_ids = retrieval.get_similar_user_documents(
-        db, user_id, document_id, topk=topk
+    similar_document_ids = retrieval.get_similar_user_clips(
+        db, user_id, clip_id, topk=topk
     )
 
     output = []
-    for doc_id, score in similar_document_ids:
-        document = operations.get_user_document_by_id(db, user_id, doc_id)
+    for clip_id, score in similar_document_ids:
+        document = operations.get_user_clip_by_id(db, user_id, clip_id)
         if not document:
-            logger.error(f"Document with id {doc_id} not found in database.")
+            logger.error(f"Document with id {clip_id} not found in database.")
             continue
+
+        book = operations.get_user_book_by_id(
+            db, user_id, str(document.document_id)
+        )
+
+        if not book:
+            logger.error(
+                f"No book with id {document.document_id} associated "
+                f"with clip {clip_id}."
+            )
+            continue
+
         output.append(
             {
                 "id": document.id,
-                "title": document.title,
-                "authors": document.authors,
-                "document_type": document.document_type,
+                "title": book.title,
+                "authors": book.authors,
                 "created_at": document.created_at,
                 "updated_at": document.updated_at,
                 "content": document.content,
-                "is_clip": document.is_clip,
+                "is_clip": True,
                 "location_type": document.location_type,
                 "clip_start": document.clip_start,
                 "clip_end": document.clip_end,
-                "catalogue_id": document.catalogue_id,
+                "catalogue_id": book.catalogue_id,
                 "score": score,
             }
         )
@@ -291,4 +277,4 @@ def library_search(
     Searches the library for any exact matches on either the title or author.
     Returns items based on match.
     """
-    return operations.search_library_by_query(db, user_id=user_id, text=query)
+    return operations.find_item_with_keyword(db, user_id, query)

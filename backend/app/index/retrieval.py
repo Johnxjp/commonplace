@@ -32,8 +32,8 @@ def retrieve_candidate_chunks(
     )
 
 
-def get_similar_user_documents(
-    db: Session, user_id: str, document_id: str, topk: int = 5
+def get_similar_user_clips(
+    db: Session, user_id: str, clip_id: str, topk: int = 5
 ) -> list[Tuple[str, float]]:
     """
     Retrieve semantically similar documents to a query. Return a list
@@ -48,7 +48,7 @@ def get_similar_user_documents(
     """
 
     # Get document chunks
-    document_chunks = operations.get_document_chunks(db, document_id)
+    document_chunks = operations.get_document_chunks(db, clip_id)
 
     # Get similar chunks for each embedding excluding comparison with itself
     # and the document's own embeddings
@@ -59,7 +59,7 @@ def get_similar_user_documents(
             user_id,
             chunk.embedding,
             topk=10,
-            exclude_documents=[document_id],
+            exclude_documents=[clip_id],
             exclude_chunks=None,
         )
 
