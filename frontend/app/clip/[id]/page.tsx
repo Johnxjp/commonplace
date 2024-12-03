@@ -5,14 +5,29 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { dummyDocuments } from "@/placeholderData";
-import BookDocument from "@/definitions";
+// import { dummyDocuments } from "@/placeholderData";
+import { Clip, Book } from "@/definitions";
 import ImageThumbnail from "@/ui/ImageThumbnail";
-import BookDocumentCard from "@/ui/BookDocumentCard";
+import BookDocumentCard from "@/ui/BookClipCard";
+
+type FetchClipApiResponse = {
+	id: string;
+	title: string;
+	authors: string;
+	document_id: string;
+	created_at: Date;
+	updated_at: Date | null;
+	content: string;
+	location_type: string;
+	clip_start: number;
+	clip_end: number | null;
+	catalogue_id: string;
+	thumbnail_path: string;
+};
 
 export default function Document() {
-	const [document, setDocument] = useState<BookDocument>();
-	const [similarDocuments, setSimilarDocuments] = useState<BookDocument[]>([]);
+	const [clip, setClip] = useState<Clip>();
+	const [similarClips, setSimilarClips] = useState<Clip[]>([]);
 	const params = useParams();
 
 	// use effect to fetch document data
@@ -31,62 +46,75 @@ export default function Document() {
 
 		fetch(resourceUrl, requestParams)
 			.then((res) => res.json())
-			.then((data) => {
+			.then((data: FetchClipApiResponse) => {
 				console.log(data);
-				const document: BookDocument = {
-					id: data.id,
+				const book: Book = {
+					id: data.document_id,
 					title: data.title,
-					authors: [data.authors],
-					documentType: data.document_type,
+					authors: data.authors.split(";"),
+					createdAt: new Date(data.created_at), // Wrong for now
+					updatedAt: data.updated_at ? new Date(data.updated_at) : null,
+					catalogueId: data.catalogue_id,
+					thumbnailUrl: data.thumbnail_path,
+				};
+				const clip: Clip = {
+					id: data.id,
+					book: book,
 					content: data.content,
 					createdAt: new Date(data.created_at),
 					updatedAt: data.updated_at ? new Date(data.updated_at) : null,
-					isClip: data.is_clip,
+					locationType: data.location_type,
 					clipStart: data.clip_start,
 					clipEnd: data.clip_end,
-					catalogueId: data.catalogue_id,
 				};
-				setDocument(document);
+				setClip(clip);
 			})
 			.catch((err) => console.error(err));
 	}, [params.id]);
 
-	// useEffect(() => {
-	// 	// Get semantically similar documents
-	// 	const serverUrl = "http://localhost:8000";
-	// 	const resourceUrl = serverUrl + "/documents/" + params.id + "/similar";
-	// 	const requestParams = {
-	// 		method: "GET",
-	// 		headers: {
-	// 			Accept: "application/json",
-	// 			"Content-Type": "application/json",
-	// 		},
-	// 	};
+	useEffect(() => {
+		// Get semantically similar documents
+		const serverUrl = "http://localhost:8000";
+		const resourceUrl = serverUrl + "/clips/" + params.id + "/similar";
+		const requestParams = {
+			method: "GET",
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			},
+		};
 
-	// 	fetch(resourceUrl, requestParams)
-	// 		.then((res) => res.json())
-	// 		.then((data) => {
-	// 			const similarDocuments: BookDocument[] = data.map((doc) => {
-	// 				return {
-	// 					id: doc.id,
-	// 					title: doc.title,
-	// 					authors: [doc.authors],
-	// 					documentType: doc.document_type,
-	// 					content: doc.content,
-	// 					createdAt: new Date(doc.created_at),
-	// 					updatedAt: doc.updated_at ? new Date(doc.updated_at) : null,
-	// 					isClip: doc.is_clip,
-	// 					clipStart: doc.clip_start,
-	// 					clipEnd: doc.clip_end,
-	// 					catalogueId: doc.catalogue_id,
-	// 				};
-	// 			});
-	// 			setSimilarDocuments(similarDocuments);
-	// 		})
-	// 		.catch((err) => console.error(err));
-	// }, [params.id]);
+		fetch(resourceUrl, requestParams)
+			.then((res) => res.json())
+			.then((data: FetchClipApiResponse[]) => {
+				const similarClips: Clip[] = data.map((doc) => {
+					const book: Book = {
+						id: doc.document_id,
+						title: doc.title,
+						authors: doc.authors.split(";"),
+						createdAt: new Date(doc.created_at),
+						updatedAt: doc.updated_at ? new Date(doc.updated_at) : null,
+						catalogueId: doc.catalogue_id,
+						thumbnailUrl: doc.thumbnail_path,
+					};
 
-	function renderSimilarDocuments() {
+					return {
+						id: doc.id,
+						book: book,
+						content: doc.content,
+						createdAt: new Date(doc.created_at),
+						updatedAt: doc.updated_at ? new Date(doc.updated_at) : null,
+						locationType: doc.location_type,
+						clipStart: doc.clip_start,
+						clipEnd: doc.clip_end,
+					};
+				});
+				setSimilarClips(similarClips);
+			})
+			.catch((err) => console.error(err));
+	}, [params.id]);
+
+	function rendersimilarClips() {
 		return (
 			<>
 				<hr className="border-1"></hr>
@@ -96,11 +124,11 @@ export default function Document() {
 				>
 					<h2 className="text-lg font-bold mt-8">Similar Annotations</h2>
 					<ul className="pt-8 pb-8 flex flex-col gap-4">
-						{similarDocuments?.map((doc) => (
+						{similarClips?.map((doc) => (
 							<li key={doc.id}>
 								<BookDocumentCard
 									clampContent={false}
-									document={doc}
+									clip={doc}
 									showTitle={true}
 								/>
 							</li>
@@ -111,34 +139,34 @@ export default function Document() {
 		);
 	}
 
-	return document === undefined ? (
+	return clip === undefined ? (
 		<></>
 	) : (
 		<div className="mx-auto flex flex-col items-center w-full h-full pl-8 pt-20 pr-14 max-w-3xl">
 			<div className="flex flex-row gap-4 w-full">
 				<ImageThumbnail
-					width={20}
-					height={20}
+					width={100}
+					height={100}
 					src={"/vibrant.jpg"}
-					alt={document.title}
+					alt={clip.book.title}
 				/>
 				<div className="flex min-h-full flex-col w-full">
 					<div>
 						<h2 className="text-2xl font-bold line-clamp-1">
-							{document.title}
+							{clip.book.title}
 						</h2>
-						<p className="italic text-md">{document.authors.join(", ")}</p>
+						<p className="italic text-md">{clip.book.authors.join(", ")}</p>
 					</div>
 				</div>
 			</div>
 			<div className="flex flex-col justify-left">
-				<p className="w-full mt-6 italics text-xl">{document.content}</p>
+				<p className="w-full mt-6 italics text-xl">{clip.content}</p>
 				<p className="text-sm mt-4 italic text-slate-400">
-					{`Location ${document.clipStart}`}
-					{document.clipEnd ? `-${document.clipEnd}` : null}
+					{`Location ${clip.clipStart}`}
+					{clip.clipEnd ? `-${clip.clipEnd}` : null}
 				</p>
 			</div>
-			{similarDocuments.length > 0 && renderSimilarDocuments()}
+			{similarClips.length > 0 && rendersimilarClips()}
 		</div>
 	);
 }

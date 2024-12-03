@@ -90,6 +90,17 @@ class Book(Base):
 
     UniqueConstraint(user_id, title, authors, name="unique_book")
 
+    # create the repr
+    def __repr__(self) -> str:
+        cols = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in self.__dict__.items()
+                if k != "_sa_instance_state"
+            ]
+        )
+        return f"{self.__class__.__name__}({cols})"
+
 
 class BookCatalogue(Base):
     """
@@ -115,13 +126,16 @@ class BookCatalogue(Base):
     # Had to be attributes and not strings
     unique_title_authors = UniqueConstraint(title, authors)
 
+    # create the repr
     def __repr__(self) -> str:
-        return (
-            f"Book(id={self.id}, "
-            f"title={self.title}, "
-            f"authors={self.authors}, "
-            f"thumbnail_path={self.thumbnail_path})"
+        cols = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in self.__dict__.items()
+                if k != "_sa_instance_state"
+            ]
         )
+        return f"{self.__class__.__name__}({cols})"
 
 
 class Clip(Base):

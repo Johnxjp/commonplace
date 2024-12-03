@@ -5,21 +5,36 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import BookDocument from "@/definitions";
+import { Clip, Book } from "@/definitions";
 import ImageThumbnail from "@/ui/ImageThumbnail";
-import BookDocumentCard from "@/ui/BookDocumentCard";
+import BookClipCard from "@/ui/BookClipCard";
 
-type containerDocument = {
-	id: string;
-	title: string;
-	authors: string[];
-	thumbnail_path: string;
+type FetchApiResponse = {
+	annotations: {
+		id: string;
+		content: string;
+		created_at: Date;
+		updated_at: Date | null;
+		clip_start: number;
+		clip_end: number | null;
+		document_id: string;
+		location_type: string;
+	}[];
+	total: number;
+	source: {
+		id: string;
+		title: string;
+		authors: string;
+		user_thumbnail_path: string | null;
+		created_at: Date;
+		updated_at: Date | null;
+		catalogue_id: string | null;
+	};
 };
 
 export default function DocumentContainer() {
-	const [containerDocument, setContainerDocument] =
-		useState<containerDocument>();
-	const [annotations, setAnnotations] = useState<BookDocument[]>([]);
+	const [book, setBook] = useState<Book>();
+	const [clips, setClips] = useState<Clip[]>([]);
 	const params = useParams();
 
 	// use effect to fetch document data
@@ -36,63 +51,67 @@ export default function DocumentContainer() {
 
 		fetch(resourceUrl, requestParams)
 			.then((res) => res.json())
-			.then((data) => {
-				const authors = data.authors ? data.authors.split(";") : [];
-				const document = {
-					id: data.id,
-					title: data.title,
+			.then((data: FetchApiResponse) => {
+				const authors = data.source.authors
+					? data.source.authors.split(";")
+					: [];
+				const book: Book = {
+					id: data.source.id,
+					title: data.source.title,
 					authors: authors,
-					thumbnail_path: data.thumbnail_path,
+					thumbnailUrl: data.source.user_thumbnail_path,
+					catalogueId: data.source.catalogue_id,
+					createdAt: new Date(data.source.created_at),
+					updatedAt: data.source.updated_at
+						? new Date(data.source.updated_at)
+						: null,
 				};
-				setContainerDocument(document);
+				setBook(book);
 				console.log(data);
-				const annotations = data["annotations"].map((annotation) => {
-					const authors = annotation.authors
-						? annotation.authors.split(";")
-						: [];
+				const clips: Clip[] = data.annotations.map((annotation) => {
 					return {
 						id: annotation.id,
-						title: annotation.title,
-						authors: authors,
-						documentType: annotation.document_type,
+						book: book,
 						content: annotation.content,
 						createdAt: new Date(annotation.created_at),
 						updatedAt: annotation.updated_at
 							? new Date(annotation.updated_at)
 							: null,
-						isClip: annotation.is_clip,
 						clipStart: annotation.clip_start,
 						clipEnd: annotation.clip_end,
-						catalogueId: annotation.catalogue_id,
+						locationType: annotation.location_type,
 					};
 				});
-				setAnnotations(annotations);
+				setClips(clips);
 			})
 			.catch((err) => console.error(err));
 	}, [params.id]);
 
 	return (
-		containerDocument && (
+		book && (
 			<div className="mx-auto flex flex-col items-center w-full h-full pl-8 pt-20 pr-14 max-w-3xl">
 				<div className="flex flex-row gap-4 w-full">
-					{ImageThumbnail(20, 20, "/vibrant.jpg", containerDocument.title)}
+					<ImageThumbnail
+						width={100}
+						height={100}
+						src={"/vibrant.jpg"}
+						alt={book.title}
+					/>
 					<div className="flex min-h-full flex-col w-full">
 						<div>
-							<h2 className="text-2xl font-bold line-clamp-1">
-								{containerDocument.title}
-							</h2>
-							<p className="italic text-md">
-								{containerDocument.authors.join(", ")}
+							<h2 className="text-2xl font-bold line-clamp-1">{book.title}</h2>
+							<p className="italic text-md">{book.authors.join(", ")}</p>
+							<p>
+								{`${clips.length} Highlight` + `${clips.length > 1 ? "s" : ""}`}
 							</p>
-							<p>{`${annotations.length} Highlight` + `${annotations.length > 1 ? 's' : ''}`}</p>
 						</div>
 					</div>
 				</div>
 				<div className="flex w-full justify-left flex-col">
 					<ul className="pt-8 pb-8 flex flex-col gap-4">
-						{annotations?.map((doc) => (
+						{clips?.map((doc) => (
 							<li key={doc.id}>
-								<BookDocumentCard clampContent={false} document={doc} />
+								<BookClipCard clampContent={false} clip={doc} />
 							</li>
 						))}
 					</ul>

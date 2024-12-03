@@ -1,29 +1,29 @@
 import { useRouter } from "next/navigation";
 
 import { capitalizeFirstLetter } from "@/utils";
-import BookDocument from "@/definitions";
+import Clip from "@/definitions";
 
-type BookDocumentCardProps = {
-	document: BookDocument;
+type BookClipCardProps = {
+	clip: Clip;
 	clampContent: boolean;
 	showMetadata?: boolean;
 	showTitle?: boolean; // Title
 	showAuthors?: boolean; // Authors only
 };
 
-export default function BookDocumentCard({
-	document,
+export default function BookClipCard({
+	clip,
 	clampContent = true,
 	showMetadata = false,
 	showTitle = false,
 	showAuthors = false,
-}: BookDocumentCardProps) {
+}: BookClipCardProps) {
 	const router = useRouter();
 
 	function handleOnClick() {
 		// open the document
-		console.log("Opening document", document.id);
-		router.push(`/clip/${document.id}`);
+		console.log("Opening document", clip.id);
+		router.push(`/clip/${clip.id}`);
 	}
 
 	function formatContent(content: string): string {
@@ -42,14 +42,14 @@ export default function BookDocumentCard({
 
 	function renderTitle() {
 		if (showTitle) {
-			return <h2 className=" text-sm line-clamp-1">{document.title}</h2>;
+			return <h2 className=" text-sm line-clamp-1">{clip.book.title}</h2>;
 		}
 	}
 	function renderAuthors() {
 		if (showAuthors) {
 			return (
 				<p className="text-xs italic line-clamp-1">
-					{document.authors.join(", ")}
+					{clip.book.authors.join(", ")}
 				</p>
 			);
 		}
@@ -62,13 +62,11 @@ export default function BookDocumentCard({
 
 	function renderContent() {
 		if (!clampContent) {
-			return (
-				<p className="text-sm italic">{formatContent(document.content)}</p>
-			);
+			return <p className="text-sm italic">{formatContent(clip.content)}</p>;
 		}
 		return (
 			<p className="text-sm italic line-clamp-3">
-				{formatContent(document.content)}
+				{formatContent(clip.content)}
 			</p>
 		);
 	}

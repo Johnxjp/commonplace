@@ -109,13 +109,37 @@ def get_user_clip(
         user_id,
         clip_id,
     )
-    # Join with document to get book information
     if not clip:
         raise HTTPException(
             status_code=404,
             detail=f"Clip with {id=} belonging to {user_id=} not found.",
         )
-    return {}
+
+    book = operations.get_user_book_by_id(
+        db,
+        user_id,
+        str(clip.document_id),
+    )
+    if not book:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Book with {clip.document_id=} belonging to {user_id=} not found.",
+        )
+
+    return {
+        "id": clip.id,
+        "title": book.title,
+        "authors": book.authors,
+        "document_id": book.id,
+        "created_at": clip.created_at,
+        "updated_at": clip.updated_at,
+        "content": clip.content,
+        "location_type": clip.location_type,
+        "clip_start": clip.clip_start,
+        "clip_end": clip.clip_end,
+        "catalogue_id": book.catalogue_id,
+        "thumbnail_path": book.user_thumbnail_path,
+    }
 
 
 @LibraryRouter.get("/documents/{document_id}")
@@ -143,8 +167,8 @@ def get_user_document(
     return document
 
 
-@LibraryRouter.get("/documents")
-def get_documents(
+@LibraryRouter.get("/clips")
+def get_clips(
     limit: int = 10,
     offset: int = 0,
     sort: Optional[str] = None,
@@ -156,10 +180,30 @@ def get_documents(
     """
     Get all documents in the database.
     """
+    response = []
     if random:
-        return operations.get_random_user_clips(
+        items = operations.get_random_user_clips_with_book(
             db, user_id=user_id, limit=limit
         )
+        for item in items:
+            clip, doc = item
+            response.append(
+                {
+                    "id": clip.id,
+                    "title": doc.title,
+                    "authors": doc.authors,
+                    "document_id": doc.id,
+                    "created_at": clip.created_at,
+                    "updated_at": clip.updated_at,
+                    "content": clip.content,
+                    "location_type": clip.location_type,
+                    "clip_start": clip.clip_start,
+                    "clip_end": clip.clip_end,
+                    "catalogue_id": doc.catalogue_id,
+                    "thumbnail_path": doc.user_thumbnail_path,
+                }
+            )
+        return response
 
     table_columns = models.Book.__table__.columns.keys()
     if sort and sort not in table_columns:
@@ -174,7 +218,7 @@ def get_documents(
         print(f"Invalid {order_by=} value. Setting to default of 'desc'.")
         order_by = "desc"
 
-    return operations.get_user_clips(
+    items = operations.get_user_clips_with_book(
         db,
         user_id=user_id,
         limit=limit,
@@ -182,6 +226,25 @@ def get_documents(
         sort=sort,
         order_by=order_by,
     )
+    for item in items:
+        clip, doc = item
+        response.append(
+            {
+                "id": clip.id,
+                "title": doc.title,
+                "authors": doc.authors,
+                "document_id": doc.id,
+                "created_at": clip.created_at,
+                "updated_at": clip.updated_at,
+                "content": clip.content,
+                "location_type": clip.location_type,
+                "clip_start": clip.clip_start,
+                "clip_end": clip.clip_end,
+                "catalogue_id": doc.catalogue_id,
+                "thumbnail_path": doc.user_thumbnail_path,
+            }
+        )
+    return response
 
 
 @LibraryRouter.get("/clips/{clip_id}/similar")

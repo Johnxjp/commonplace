@@ -3,19 +3,19 @@
 import { useState, useEffect } from "react";
 
 import { getTimeOfDay } from "@/utils";
-import BookDocument from "@/definitions";
-import BookDocumentCard from "@/ui/BookDocumentCard";
+import { Clip, Book } from "@/definitions";
+import BookDocumentCard from "@/ui/BookClipCard";
 import HomeSearchBar from "@/HomeSearchBar";
-import { dummyDocuments } from "@/placeholderData";
+// import { dummyDocuments } from "@/placeholderData";
 
-function BookDocumentSampleGrid({ documents }: { documents: BookDocument[] }) {
+function ClipSampleGrid({ clips }: { clips: Clip[] }) {
 	return (
 		<div className="mx-auto max-w-4xl w-full px-1 md:px-2 flex">
 			<ul className="grid w-full md:grid-cols-3 gap-3">
-				{documents.map((doc) => (
-					<li className="flex-1" key={doc.id}>
+				{clips.map((clip) => (
+					<li className="flex-1" key={clip.id}>
 						<BookDocumentCard
-							document={doc}
+							clip={clip}
 							clampContent={true}
 							showTitle={true}
 							showAuthors={false}
@@ -28,45 +28,71 @@ function BookDocumentSampleGrid({ documents }: { documents: BookDocument[] }) {
 	);
 }
 
+type FetchClipsApiResponse = {
+	id: string;
+	title: string;
+	authors: string;
+	content: string;
+	document_id: string;
+	created_at: string;
+	location_type: string;
+	updated_at: string | null;
+	clip_start: number | null;
+	clip_end: number | null;
+	catalogue_id: string;
+	thumbnail_url: string | null;
+}[];
+
 export default function Home() {
 	const timeOfDay: string = getTimeOfDay();
-	const [documents, setDocuments] = useState<BookDocument[]>([]);
+	const [clips, setClips] = useState<Clip[]>([]);
 
 	useEffect(() => {
-		setDocuments(dummyDocuments);
-		// const serverUrl = "http://localhost:8000";
-		// const resourceUrl = serverUrl + "/documents?limit=6&random=true";
-		// const requestParams = {
-		// 	method: "GET",
-		// 	headers: {
-		// 		Accept: "application/json",
-		// 		"Content-Type": "application/json",
-		// 	},
-		// };
+		// setClips(dummyDocuments);
+		const serverUrl = "http://localhost:8000";
+		const resourceUrl = serverUrl + "/clips?limit=6&random=true";
+		const requestParams = {
+			method: "GET",
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			},
+		};
 
-		// fetch(resourceUrl, requestParams)
-		// 	.then((res) => res.json())
-		// 	.then((data) => {
-		// 		console.log(data);
-		// 		const documents: BookDocument[] = data.map((doc) => {
-		// 			return {
-		// 				id: doc.id,
-		// 				title: doc.title,
-		// 				authors: [doc.authors],
-		// 				documentType: doc.document_type,
-		// 				content: doc.content,
-		// 				createdAt: new Date(doc.created_at),
-		// 				updatedAt: doc.updated_at ? new Date(doc.updated_at) : null,
-		// 				isClip: doc.is_clip,
-		// 				clipStart: doc.clip_start,
-		// 				clipEnd: doc.clip_end,
-		// 				catalogueId: doc.catalogue_id,
-		// 			};
-		// 		});
-		// 		setDocuments(documents);
-		// 		console.log(documents);
-		// 	})
-		// 	.catch((err) => console.error(err));
+		fetch(resourceUrl, requestParams)
+			.then((res) => res.json())
+			.then((data: FetchClipsApiResponse) => {
+				console.log(data);
+				const clips: Clip[] = data.map((response) => {
+					const book: Book = {
+						id: response.document_id,
+						title: response.title,
+						authors: response.authors.split(";"),
+						createdAt: new Date(response.created_at),
+						updatedAt: response.updated_at
+							? new Date(response.updated_at)
+							: null,
+						catalogueId: response.catalogue_id,
+						thumbnailUrl: response.thumbnail_url,
+					};
+
+					return {
+						id: response.id,
+						book: book,
+						content: response.content,
+						createdAt: new Date(response.created_at),
+						updatedAt: response.updated_at
+							? new Date(response.updated_at)
+							: null,
+						locationType: response.location_type,
+						clipStart: response.clip_start,
+						clipEnd: response.clip_end,
+					};
+				});
+				setClips(clips);
+				console.log(clips);
+			})
+			.catch((err) => console.error(err));
 	}, []);
 
 	return (
@@ -76,7 +102,7 @@ export default function Home() {
 					Good {timeOfDay.charAt(0).toUpperCase() + timeOfDay.slice(1)}
 				</h1>
 				<h2 className="text-2xl">Just Wander</h2>
-				<BookDocumentSampleGrid documents={documents} />
+				<ClipSampleGrid clips={clips} />
 				<HomeSearchBar />
 			</main>
 		</div>

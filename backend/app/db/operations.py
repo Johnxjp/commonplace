@@ -364,6 +364,29 @@ def get_random_user_clips(
     return list(db.scalars(query).all())
 
 
+def get_random_user_clips_with_book(
+    db: Session,
+    user_id: str,
+    limit: int = 10,
+) -> list[Row[Tuple[models.Clip, models.Book]]]:
+    """
+    Returns a random selection of documents from the user's library up
+    to the limit.
+    """
+
+    query = (
+        select(models.Clip, models.Book)
+        .join(
+            models.Book,
+            models.Clip.document_id == models.Book.id,
+        )
+        .where(models.Clip.user_id == user_id)
+        .order_by(func.random())
+        .limit(limit)
+    )
+    return list(db.execute(query).all())
+
+
 def get_user_clips(
     db: Session,
     user_id: str,
@@ -394,6 +417,46 @@ def get_user_clips(
         )
 
     return list(db.scalars(query).all())
+
+
+def get_user_clips_with_book(
+    db: Session,
+    user_id: str,
+    limit: int = 10,
+    offset: int = 0,
+    sort: Optional[str] = None,
+    order_by: str = "desc",
+) -> list[Row[Tuple[models.Clip, models.Book]]]:
+    """
+    Assumes sort is a column in the Book table.
+    """
+    if sort:
+        order = models.Clip.__table__.c[sort]
+        order = order.desc() if order_by == "desc" else order.asc()
+        query = (
+            select(models.Clip, models.Book)
+            .join(
+                models.Book,
+                models.Clip.document_id == models.Book.id,
+            )
+            .where(models.Clip.user_id == user_id)
+            .order_by(order)
+            .limit(limit)
+            .offset(offset)
+        )
+    else:
+        query = (
+            select(models.Clip, models.Book)
+            .join(
+                models.Book,
+                models.Clip.document_id == models.Book.id,
+            )
+            .where(models.Clip.user_id == user_id)
+            .limit(limit)
+            .offset(offset)
+        )
+
+    return list(db.execute(query).all())
 
 
 def get_similar_chunks(

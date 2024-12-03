@@ -48,8 +48,8 @@ function LibraryItem({ item }: { item: Item }) {
 			<ImageThumbnail
 				src={item.thumbnailUrl ? item.thumbnailUrl : "/vibrant.jpg"}
 				alt={item.title}
-				height={20}
-				width={20}
+				height={80}
+				width={80}
 			/>
 			<div className="flex min-h-full flex-col w-full">
 				<div>

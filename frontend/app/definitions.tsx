@@ -1,15 +1,22 @@
-type BookDocument = {
-	id: string; // technically uuid v4
+export type Book = {
+	id: string;
 	title: string;
 	authors: string[];
-	documentType: string;
+	createdAt: Date;
+	updatedAt: Date | null;
+	catalogueId: string | null;
+	thumbnailUrl: string | null;
+};
+
+export type Clip = {
+	id: string; // technically uuid v4
+	book: Book;
 	content: string;
 	createdAt: Date;
 	updatedAt: Date | null;
-	isClip: boolean;
+	locationType: string;
 	clipStart: number | null;
 	clipEnd: number | null;
-	catalogueId: string;
 };
 
-export default BookDocument;
+export default Clip;

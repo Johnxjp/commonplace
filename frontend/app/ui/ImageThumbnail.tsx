@@ -15,14 +15,20 @@ export default function ImageThumbnail({
 }: ImageThumbnailProps) {
 	return (
 		<div
-			className={`relative min-w-${width} max-w-${width} min-h-${height} max-h-${height}`}
+			className="relative"
+			style={{
+				minWidth: width,
+				maxWidth: width,
+				minHeight: height,
+				maxHeight: height,
+			}}
 		>
 			<Image
-				className="rounded-md"
+				className="rounded-md object-cover"
 				src={src}
-				objectFit="cover"
-				layout="fill"
 				alt={alt}
+				fill={true}
+				sizes="20vw"
 			/>
 		</div>
 	);
