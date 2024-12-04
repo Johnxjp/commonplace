@@ -1,5 +1,4 @@
 import os
-import logging
 
 # TODO: Move all these to env files
 DB_DRIVER = "postgresql"
@@ -15,11 +14,3 @@ CHUNKING_STRATEGY = None
 THRESHOLD_SCORE = 1.0
 AUTHOR_SEPARATOR = ";"
 MIN_CHUNK_SIZE = 20  # characters
-
-
-def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
