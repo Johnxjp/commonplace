@@ -20,3 +20,14 @@ export type Clip = {
 };
 
 export default Clip;
+
+export type ConversationMetadata = {
+	id: string;
+	createdAt: Date;
+	updatedAt: Date;
+	model: string | null;
+	name: string | null;
+	summary: string | null;
+	messageCount: number;
+	currentLeafMessageId: string | null;
+};

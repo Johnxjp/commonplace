@@ -14,7 +14,21 @@ Having chunks of like 2-3 sentences could probably work well.
 """
 
 import nltk
+
 nltk.download("punkt")
+
+
+def split_sentences(text: str) -> list[str]:
+    """
+    Splits a piece of text into sentences.
+
+    Args:
+    - text (str): The input text to be tokenized.
+
+    Returns:
+    List[str]: List of sentences.
+    """
+    return nltk.sent_tokenize(text)
 
 
 def multisentence_tokeniser(

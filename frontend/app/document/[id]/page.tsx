@@ -67,7 +67,6 @@ export default function DocumentContainer() {
 						: null,
 				};
 				setBook(book);
-				console.log(data);
 				const clips: Clip[] = data.annotations.map((annotation) => {
 					return {
 						id: annotation.id,

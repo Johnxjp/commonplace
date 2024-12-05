@@ -640,6 +640,9 @@ def add_message(
     try:
         db.add(message)
         db.commit()
+
+        # Maybe this should be a separate function
+        conversation.updated_at = message.created_at
         if parent_message_id == conversation.current_leaf_message_uuid:
             conversation.current_leaf_message_uuid = message.id
             conversation.message_count += 1
@@ -657,3 +660,33 @@ def add_message(
         raise e
 
     return message
+
+
+def add_conversation_name(
+    db: Session,
+    user_id: str,
+    conversation_id: str,
+    name: str,
+) -> models.Conversation:
+    """
+    Adds a name to the conversation.
+    """
+    conversation = get_conversation(db, user_id, conversation_id)
+    if not conversation:
+        raise ValueError("Conversation does not exist")
+
+    conversation.name = name
+    try:
+        db.commit()
+    except IntegrityError as e:
+        print("Could not insert message")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+    except SQLAlchemyError as e:
+        print("Could not insert message")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+
+    return conversation

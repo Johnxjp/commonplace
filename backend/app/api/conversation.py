@@ -99,7 +99,7 @@ def get_conversations(
     Does not return entirety of the messages in the conversation just the
     metadata.
     """
-    return operations.get_conversations(
+    conversations = operations.get_conversations(
         db,
         user_id=user_id,
         limit=limit,
@@ -107,6 +107,19 @@ def get_conversations(
         sort=sort,
         order_by=order_by,
     )
+    return [
+        {
+            "id": conversation.id,
+            "name": conversation.name,
+            "created_at": conversation.created_at,
+            "updated_at": conversation.updated_at,
+            "current_leaf_message_id": conversation.current_leaf_message_uuid,  # noqa
+            "model": conversation.model,
+            "summary": conversation.summary,
+            "message_count": conversation.message_count,
+        }
+        for conversation in conversations
+    ]
 
 
 @ConversationRouter.post("/conversation/{conversation_id}/completion")
@@ -180,17 +193,24 @@ def complete_conversation(
 
     At the moment this will not be streamed.
     """
-    # Add user message
-    user_message = operations.add_message(
-        db,
-        user_id,
-        conversation_id,
-        sender=MessageRoles.USER.value,
-        content=query,
-        parent_message_id=parent_message_id,
-    )
-
     try:
+
+        # Add user message
+        user_message = operations.add_message(
+            db,
+            user_id,
+            conversation_id,
+            sender=MessageRoles.USER.value,
+            content=query,
+            parent_message_id=parent_message_id,
+        )
+        conversation = user_message.conversation
+        if conversation.name is None:
+            name = query[:50]
+            conversation = operations.add_conversation_name(
+                db, user_id, conversation_id, name
+            )
+
         generated_queries = generate_query_variants(query, max_variants=3)
         # Add query variants and original query
         generated_queries = generated_queries + [query]

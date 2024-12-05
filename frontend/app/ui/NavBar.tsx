@@ -32,11 +32,11 @@ export default function NavBar({
 
 					<button
 						className="h-8 w-8 font-medium bg-white rounded-md hover:shadow-sm hover:border-md"
-						title="search_history"
+						title="Conversation History"
 					>
 						<Link
 							className="flex items-center justify-center h-full w-full"
-							href="/search"
+							href="/conversation"
 						>
 							S
 						</Link>
