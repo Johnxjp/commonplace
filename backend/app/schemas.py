@@ -8,6 +8,11 @@ BOOK_TITLE = str
 BOOK_AUTHORS = str
 
 
+class MessageRoles(StrEnum):
+    SYSTEM = "system"
+    USER = "user"
+
+
 class BookAnnotationType(StrEnum):
     COMMENT = "comment"
     BOOKMARK = "bookmark"

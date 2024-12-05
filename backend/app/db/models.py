@@ -168,6 +168,7 @@ class Clip(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
     content: Mapped[str] = mapped_column(String, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
 
@@ -260,6 +261,108 @@ class Embedding(Base):
 
     # Assuming you have same embedder for all embeddings
     UniqueConstraint(source_id, chunk_content, name="unique_embedding")
+
+    def __repr__(self) -> str:
+        cols = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in self.__dict__.items()
+                if k != "_sa_instance_state"
+            ]
+        )
+        return f"{self.__class__.__name__}({cols})"
+
+
+class Conversation(Base):
+
+    __tablename__ = "conversation"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        primary_key=True,
+        nullable=False,
+        unique=True,
+        server_default=text("uuid_generate_v4()"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("user.id", ondelete="cascade"), nullable=False
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now()
+    )
+
+    summary: Mapped[str] = mapped_column(String, nullable=True)
+
+    # Which language model is used to answer the question. Configuration
+    model: Mapped[str] = mapped_column(String, nullable=True)
+
+    # Updated At should be equal to created at in the beginning
+    # Behaviour is different from above. Change others later
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now()
+    )
+    name: Mapped[str] = mapped_column(String, nullable=True)
+
+    message_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+
+    current_leaf_message_uuid: Mapped[uuid.UUID] = mapped_column(
+        UUID, nullable=True
+    )
+
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation"
+    )
+
+    def __repr__(self) -> str:
+        cols = ", ".join(
+            [
+                f"{k}={v}"
+                for k, v in self.__dict__.items()
+                if k != "_sa_instance_state"
+            ]
+        )
+        return f"{self.__class__.__name__}({cols})"
+
+
+class Message(Base):
+
+    __tablename__ = "message"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID,
+        primary_key=True,
+        nullable=False,
+        unique=True,
+        server_default=text("uuid_generate_v4()"),
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("conversation.id", ondelete="cascade"), nullable=False
+    )
+
+    # Every message has a parent message. If it's the first message then null
+    # A parent message can have multiple
+    parent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("message.id", ondelete="cascade"), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now(), index=True
+    )
+
+    # Quick access to order
+    index: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # 'system' or 'user' message
+    sender: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(String, nullable=False)
+
+    conversation: Mapped["Conversation"] = relationship(
+        back_populates="messages"
+    )
 
     def __repr__(self) -> str:
         cols = ", ".join(
