@@ -506,8 +506,19 @@ def create_conversation(db: Session, user_id: str) -> models.Conversation:
     Creates a new conversation for the user.
     """
     conversation = models.Conversation(user_id=user_id)
-    db.add(conversation)
-    db.commit()
+    try: 
+        db.add(conversation)
+        db.commit()
+    except IntegrityError as e:
+        print("Could not create conversation")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+    except SQLAlchemyError as e:
+        print("Could not create conversation")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
     return conversation
 
 
