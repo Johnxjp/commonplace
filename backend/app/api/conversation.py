@@ -52,7 +52,7 @@ def create_conversation(
     try:
         conversation = operations.create_conversation(db, user_id)
         return {
-            "uuid": conversation.id,
+            "id": conversation.id,
             "name": conversation.name,
             "created_at": conversation.created_at,
             "updated_at": conversation.updated_at,
@@ -87,9 +87,9 @@ def get_conversation(
 @ConversationRouter.get("/conversation")
 def get_conversations(
     limit: Optional[int] = None,
-    offset: Optional[int] = 0,
-    sort: Optional[str] = "updated_at",
-    order_by: Optional[str] = "desc",
+    offset: Optional[int] = None,
+    sort: Optional[str] = None,
+    order_by: Optional[str] = None,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -113,7 +113,7 @@ def get_conversations(
 def complete_conversation(
     conversation_id: str,
     query: str,
-    parent_message_id: str,
+    parent_message_id: Optional[str] = None,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -228,6 +228,7 @@ def complete_conversation(
 
         # Extract ids from the response and retrieve source details
         source_ids = extract_ids_from_llm_response(response)
+        logger.info(f"Extracted source ids: {source_ids}")
         invalid_ids = []
         sources = []
         for source_id in source_ids:
@@ -240,11 +241,25 @@ def complete_conversation(
                 logger.error(f"Clip with id {source_id} not found")
                 invalid_ids.append(source_id)
             else:
-                sources.append(clip)
+                formatted_source = {
+                    "id": clip.id,
+                    "content": clip.content,
+                    "document_id": clip.document_id,
+                    "location": clip.location_type,
+                    "clip_start": clip.clip_start,
+                    "clip_end": clip.clip_end,
+                    "created_at": clip.created_at,
+                    "updated_at": clip.updated_at,
+                    "title": clip.document.title,
+                    "authors": clip.document.authors,
+                    "catalogue_id": clip.document.catalogue_id,
+                    "user_thumbnail_path": clip.document.user_thumbnail_path,
+                }
+                sources.append(formatted_source)
 
         # Remove invalid ids from response — do we want this?
         for invalid_id in invalid_ids:
-            # Unfortunatly, this is a bit of a hack. We need to remove the
+            # Unfortunately, this is a bit of a hack. We need to remove the
             # invalid id from the response. We can't just remove the id as
             # it could be in the middle of the response. We need to remove
             # the entire block of text that contains the id plus the
@@ -265,7 +280,6 @@ def complete_conversation(
             "conversation_id": message.conversation_id,
             "parent_id": message.parent_id,
             "created_at": message.created_at,
-            "index": message.index,
             "sender": message.sender,
             "prompt": query,
             "content": response,

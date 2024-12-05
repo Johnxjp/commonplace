@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import ImportRouter, LibraryRouter
+from app.api import ImportRouter, LibraryRouter, ConversationRouter
 from app.logging import setup_logging
 
 setup_logging()
@@ -22,3 +22,4 @@ app.add_middleware(
 
 app.include_router(ImportRouter)
 app.include_router(LibraryRouter)
+app.include_router(ConversationRouter)

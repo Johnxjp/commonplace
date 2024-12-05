@@ -308,6 +308,7 @@ class Conversation(Base):
         Integer, nullable=False, default=0
     )
 
+    # TODO: change to ID
     current_leaf_message_uuid: Mapped[uuid.UUID] = mapped_column(
         UUID, nullable=True
     )

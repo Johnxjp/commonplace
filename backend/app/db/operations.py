@@ -192,8 +192,17 @@ def create_book(
         user_thumbnail_path=user_thumbnail_path,
         catalogue_id=catalogue_id,
     )
-    db.add(book)
-    db.commit()
+    try:
+        db.add(book)
+        db.commit()
+    except IntegrityError as e:
+        print("Could not insert new book")
+        print(f"Error: {e}")
+        db.rollback()
+    except SQLAlchemyError as e:
+        print("Could not insert new book")
+        print(f"Error: {e}")
+        db.rollback()
     return book
 
 
@@ -217,8 +226,17 @@ def create_clip(
         clip_start=clip_start,
         clip_end=clip_end,
     )
-    db.add(clip)
-    db.commit()
+    try:
+        db.add(clip)
+        db.commit()
+    except IntegrityError as e:
+        print("Could not insert new clip")
+        print(f"Error: {e}")
+        db.rollback()
+    except SQLAlchemyError as e:
+        print("Could not insert new clip")
+        print(f"Error: {e}")
+        db.rollback()
     return clip
 
 
@@ -236,8 +254,18 @@ def create_book_catalogue_item(
         authors=authors,
         thumbnail_path=thumbnail_path,
     )
-    db.add(book)
-    db.commit()
+    try:
+        db.add(book)
+        db.commit()
+    except IntegrityError as e:
+        print("Could not insert new catalogue item")
+        print(f"Error: {e}")
+        db.rollback()
+    except SQLAlchemyError as e:
+        print("Could not insert new catalogue item")
+        print(f"Error: {e}")
+        db.rollback()
+
     return book
 
 
@@ -506,7 +534,7 @@ def create_conversation(db: Session, user_id: str) -> models.Conversation:
     Creates a new conversation for the user.
     """
     conversation = models.Conversation(user_id=user_id)
-    try: 
+    try:
         db.add(conversation)
         db.commit()
     except IntegrityError as e:
@@ -574,7 +602,17 @@ def get_message(
     """
     Retrieves a message for a user
     """
-    query = select(models.Message).filter_by(id=message_id, user_id=user_id)
+    # Should join on conversation to ensure user access
+    query = (
+        select(models.Message)
+        .join(
+            models.Conversation,
+            models.Message.conversation_id == models.Conversation.id,
+        )
+        .where(models.Message.id == message_id)
+        .where(models.Conversation.user_id == user_id)
+    )
+
     return db.scalars(query).first()
 
 
@@ -594,7 +632,6 @@ def add_message(
         raise ValueError("Conversation does not exist")
 
     message = models.Message(
-        user_id=user_id,
         conversation_id=conversation_id,
         sender=sender,
         content=content,
@@ -603,8 +640,9 @@ def add_message(
     try:
         db.add(message)
         db.commit()
-        conversation.current_leaf_message_uuid = message.id
-        conversation.message_count += 1
+        if parent_message_id == conversation.current_leaf_message_uuid:
+            conversation.current_leaf_message_uuid = message.id
+            conversation.message_count += 1
         db.commit()
 
     except IntegrityError as e:
