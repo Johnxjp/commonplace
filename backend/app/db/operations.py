@@ -499,3 +499,112 @@ def get_similar_chunks(
         .limit(topk)
     )
     return list(db.execute(query).all())
+
+
+def create_conversation(db: Session, user_id: str) -> models.Conversation:
+    """
+    Creates a new conversation for the user.
+    """
+    conversation = models.Conversation(user_id=user_id)
+    db.add(conversation)
+    db.commit()
+    return conversation
+
+
+def get_conversation(
+    db: Session, user_id: str, conversation_id: str
+) -> models.Conversation | None:
+    """
+    Retrieves the user's conversation.
+    """
+    query = select(models.Conversation).filter_by(
+        id=conversation_id, user_id=user_id
+    )
+    return db.scalars(query).first()
+
+
+def get_conversations(
+    db: Session,
+    user_id: str,
+    limit: Optional[int] = 10,
+    offset: Optional[int] = 0,
+    sort: Optional[str] = None,
+    order_by: Optional[str] = "desc",
+) -> list[models.Conversation]:
+    """
+    Retrieves all conversations for the user. Does not return messages
+    but just metadata
+    """
+    if sort:
+        order = models.Conversation.__table__.c[sort]
+        order = order.desc() if order_by == "desc" else order.asc()
+        query = (
+            select(models.Conversation)
+            .where(models.Conversation.user_id == user_id)
+            .order_by(order)
+            .offset(offset)
+        )
+    else:
+        query = (
+            select(models.Conversation)
+            .where(models.Conversation.user_id == user_id)
+            .offset(offset)
+        )
+
+    if limit:
+        query = query.limit(limit)
+
+    return list(db.scalars(query).all())
+
+
+def get_message(
+    db: Session, user_id: str, message_id: str
+) -> models.Message | None:
+    """
+    Retrieves a message for a user
+    """
+    query = select(models.Message).filter_by(id=message_id, user_id=user_id)
+    return db.scalars(query).first()
+
+
+def add_message(
+    db: Session,
+    user_id: str,
+    conversation_id: str,
+    sender: str,
+    content: str,
+    parent_message_id: Optional[str] = None,
+) -> models.Message:
+    """
+    Adds a message to the conversation.
+    """
+    conversation = get_conversation(db, user_id, conversation_id)
+    if not conversation:
+        raise ValueError("Conversation does not exist")
+
+    message = models.Message(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        sender=sender,
+        content=content,
+        parent_id=parent_message_id,
+    )
+    try:
+        db.add(message)
+        db.commit()
+        conversation.current_leaf_message_uuid = message.id
+        conversation.message_count += 1
+        db.commit()
+
+    except IntegrityError as e:
+        print("Could not insert message")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+    except SQLAlchemyError as e:
+        print("Could not insert message")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+
+    return message

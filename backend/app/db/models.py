@@ -289,15 +289,14 @@ class Conversation(Base):
         UUID, ForeignKey("user.id", ondelete="cascade"), nullable=False
     )
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=func.now()
-    )
-
     summary: Mapped[str] = mapped_column(String, nullable=True)
 
     # Which language model is used to answer the question. Configuration
     model: Mapped[str] = mapped_column(String, nullable=True)
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now()
+    )
     # Updated At should be equal to created at in the beginning
     # Behaviour is different from above. Change others later
     updated_at: Mapped[datetime] = mapped_column(
@@ -352,9 +351,6 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=func.now(), index=True
     )
-
-    # Quick access to order
-    index: Mapped[int] = mapped_column(Integer, nullable=False)
 
     # 'system' or 'user' message
     sender: Mapped[str] = mapped_column(String, nullable=False)

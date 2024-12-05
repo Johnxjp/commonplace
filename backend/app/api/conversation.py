@@ -52,7 +52,7 @@ def create_conversation(
     try:
         conversation = operations.create_conversation(db, user_id)
         return {
-            "uuid": conversation.uuid,
+            "uuid": conversation.id,
             "name": conversation.name,
             "created_at": conversation.created_at,
             "updated_at": conversation.updated_at,
@@ -75,7 +75,7 @@ def get_conversation(
     """
     Retrieves the conversation with all messages
     """
-    conversation = operations.get_conversation(conversation_id, user_id, db)
+    conversation = operations.get_conversation(db, user_id, conversation_id)
     if not conversation:
         raise HTTPException(
             status_code=404,
@@ -113,6 +113,7 @@ def get_conversations(
 def complete_conversation(
     conversation_id: str,
     query: str,
+    parent_message_id: str,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -179,7 +180,15 @@ def complete_conversation(
 
     At the moment this will not be streamed.
     """
-    # TODO: Record user message to conversation
+    # Add user message
+    user_message = operations.add_message(
+        db,
+        user_id,
+        conversation_id,
+        sender=MessageRoles.USER.value,
+        content=query,
+        parent_message_id=parent_message_id,
+    )
 
     try:
         generated_queries = generate_query_variants(query, max_variants=3)
@@ -242,13 +251,13 @@ def complete_conversation(
             response = response.replace(f"```{invalid_id}```", "")
 
         # Add new leaf message to the conversation database
-        message = operations.add_message_to_conversation(
+        message = operations.add_message(
             db,
-            conversation_id,
             user_id,
-            response,
-            source_ids,
-            MessageRoles.SYSTEM.value,
+            conversation_id,
+            sender=MessageRoles.SYSTEM.value,
+            content=response,
+            parent_message_id=str(user_message.id),
         )
 
         return {
@@ -279,7 +288,7 @@ def get_message(
     """
     Retrieves a user message
     """
-    message = operations.get_message(message_id, user_id, db)
+    message = operations.get_message(db, user_id, message_id)
     if not message:
         raise HTTPException(
             status_code=404, detail=f"Message with id {message_id} not found"
