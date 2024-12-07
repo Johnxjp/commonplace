@@ -215,7 +215,7 @@ class Comment(Base):
     parent_id: Mapped[uuid.UUID] = mapped_column(UUID, nullable=False)
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("user.id", ondelete="cascade"), nullable=False
+        UUID, ForeignKey("user.id", ondelete="CASCADE"), nullable=False
     )
     content: Mapped[str] = mapped_column(String, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -250,7 +250,7 @@ class Embedding(Base):
     )
 
     source_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("clip.id", ondelete="cascade"), nullable=False
+        UUID, ForeignKey("clip.id", ondelete="CASCADE"), nullable=False
     )
 
     # chunk_content
@@ -286,7 +286,7 @@ class Conversation(Base):
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("user.id", ondelete="cascade"), nullable=False
+        UUID, ForeignKey("user.id", ondelete="CASCADE"), nullable=False
     )
 
     summary: Mapped[str] = mapped_column(String, nullable=True)
@@ -340,16 +340,19 @@ class Message(Base):
         server_default=text("uuid_generate_v4()"),
     )
     conversation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("conversation.id", ondelete="cascade"), nullable=False
+        UUID, ForeignKey("conversation.id", ondelete="CASCADE"), nullable=False
     )
 
     # Every message has a parent message. If it's the first message then null
     # A parent message can have multiple
     parent_id: Mapped[uuid.UUID] = mapped_column(
-        UUID, ForeignKey("message.id", ondelete="cascade"), nullable=True
+        UUID, ForeignKey("message.id", ondelete="CASCADE"), nullable=True
     )
 
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now(), index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=func.now(), index=True
     )
 

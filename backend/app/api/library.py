@@ -308,9 +308,13 @@ def get_similar_clips(
     return output
 
 
+class AnswerPayload(BaseModel):
+    query: str
+
+
 @LibraryRouter.post("/answer")
 def answer_user_query(
-    query: str,
+    payload: AnswerPayload,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -330,9 +334,13 @@ def answer_user_query(
     pass
 
 
+class SearchPayload(BaseModel):
+    query: str
+
+
 @LibraryRouter.post("/library/search")
 def library_search(
-    query: str,
+    payload: SearchPayload,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -340,4 +348,5 @@ def library_search(
     Searches the library for any exact matches on either the title or author.
     Returns items based on match.
     """
+    query = payload.query
     return operations.find_item_with_keyword(db, user_id, query)

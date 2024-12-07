@@ -31,3 +31,13 @@ export type ConversationMetadata = {
 	messageCount: number;
 	currentLeafMessageId: string | null;
 };
+
+export type Message = {
+	id: string;
+	parent_message_id: string | null;
+	createdAt: Date;
+	updatedAt: Date | null;
+	sender: string;
+	content: string;
+	contentSources: Clip[];
+};

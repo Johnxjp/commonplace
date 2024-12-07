@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 
 # import numpy as np
-from sqlalchemy import func, select, Row
+from sqlalchemy import func, select, Row, delete
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -625,7 +625,7 @@ def add_message(
     parent_message_id: Optional[str] = None,
 ) -> models.Message:
     """
-    Adds a message to the conversation.
+    Adds a message to the conversation and updates conversation metadata.
     """
     conversation = get_conversation(db, user_id, conversation_id)
     if not conversation:
@@ -690,3 +690,31 @@ def add_conversation_name(
         raise e
 
     return conversation
+
+
+def delete_conversation(
+    db: Session,
+    user_id: str,
+    conversation_id: str,
+) -> None:
+    """
+    Deletes a conversation and all associated messages.
+    """
+    try:
+        statement = (
+            delete(models.Conversation)
+            .where(models.Conversation.id == conversation_id)
+            .where(models.Conversation.user_id == user_id)
+        )
+        db.execute(statement)
+        db.commit()
+    except IntegrityError as e:
+        print("Could not delete conversation")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+    except SQLAlchemyError as e:
+        print("Could not delete conversation")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e

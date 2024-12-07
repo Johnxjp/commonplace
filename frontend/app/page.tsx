@@ -67,7 +67,8 @@ export default function Home() {
 					const book: Book = {
 						id: response.document_id,
 						title: response.title,
-						authors: response.authors.split(";"),
+						authors:
+							response.authors !== null ? response.authors.split(";") : [],
 						createdAt: new Date(response.created_at),
 						updatedAt: response.updated_at
 							? new Date(response.updated_at)

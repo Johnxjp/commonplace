@@ -6,6 +6,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.utils import get_current_user
@@ -66,6 +67,50 @@ def create_conversation(
         )
 
 
+class MessagePayload(BaseModel):
+    content: str
+    sender: str
+    parent_message_id: Optional[str] = None
+
+
+@ConversationRouter.post("/conversation/{conversation_id}/message")
+def add_message_to_conversation(
+    conversation_id: str,
+    message_payload: MessagePayload,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Adds a message to the conversation.
+    """
+    try:
+        content = message_payload.content
+        sender = message_payload.sender
+        parent_message_id = message_payload.parent_message_id
+        message = operations.add_message(
+            db,
+            user_id,
+            conversation_id,
+            sender=sender,
+            content=content,
+            parent_message_id=parent_message_id,
+        )
+        return {
+            "id": message.id,
+            "conversation_id": message.conversation_id,
+            "parent_id": message.parent_id,
+            "created_at": message.created_at,
+            "updated_at": message.updated_at,
+            "sender": message.sender,
+            "content": message.content,
+        }
+    except Exception as e:
+        logger.error(f"Error adding message to conversation: {e}")
+        raise HTTPException(
+            status_code=500, detail="Error adding message to conversation"
+        )
+
+
 @ConversationRouter.get("/conversation/{conversation_id}")
 def get_conversation(
     conversation_id: str,
@@ -81,7 +126,44 @@ def get_conversation(
             status_code=404,
             detail=f"Conversation with id {conversation_id} not found",
         )
-    return conversation
+    messages = sorted(conversation.messages, key=lambda x: x.created_at)
+    return {
+        "id": conversation.id,
+        "name": conversation.name,
+        "created_at": conversation.created_at,
+        "updated_at": conversation.updated_at,
+        "current_leaf_message_id": conversation.current_leaf_message_uuid,  # noqa
+        "model": conversation.model,
+        "summary": conversation.summary,
+        "message_count": conversation.message_count,
+        "messages": messages,
+    }
+
+
+@ConversationRouter.delete("/conversation/{conversation_id}")
+def delete_conversation(
+    conversation_id: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes a conversation
+    """
+    try:
+        logger.info(f"Deleting conversation with id {conversation_id}")
+        operations.delete_conversation(db, user_id, conversation_id)
+        return {"message": f"Conversation with id {conversation_id} deleted"}
+    except ValueError as e:
+        logger.error(f"Error deleting conversation: {e}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Conversation not found with id {conversation_id}",
+        )
+    except Exception as e:
+        logger.error(f"Error deleting conversation: {e}")
+        raise HTTPException(
+            status_code=500, detail="Error deleting conversation"
+        )
 
 
 @ConversationRouter.get("/conversation")
@@ -122,11 +204,15 @@ def get_conversations(
     ]
 
 
+class ConversationUpdatePayload(BaseModel):
+    query: str
+    parent_message_id: Optional[str] = None
+
+
 @ConversationRouter.post("/conversation/{conversation_id}/completion")
 def complete_conversation(
     conversation_id: str,
-    query: str,
-    parent_message_id: Optional[str] = None,
+    completion_payload: ConversationUpdatePayload,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -194,17 +280,27 @@ def complete_conversation(
     At the moment this will not be streamed.
     """
     try:
-
+        query = completion_payload.query
+        parent_message_id = completion_payload.parent_message_id
         # Add user message
-        user_message = operations.add_message(
-            db,
-            user_id,
-            conversation_id,
-            sender=MessageRoles.USER.value,
-            content=query,
-            parent_message_id=parent_message_id,
+        # user_message = operations.add_message(
+        #     db,
+        #     user_id,
+        #     conversation_id,
+        #     sender=MessageRoles.USER.value,
+        #     content=query,
+        #     parent_message_id=parent_message_id,
+        # )
+        # conversation = user_message.conversation
+        conversation = operations.get_conversation(
+            db, user_id, conversation_id
         )
-        conversation = user_message.conversation
+        if not conversation:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Conversation with id {conversation_id} not found",
+            )
+
         if conversation.name is None:
             name = query[:50]
             conversation = operations.add_conversation_name(
@@ -265,7 +361,7 @@ def complete_conversation(
                     "id": clip.id,
                     "content": clip.content,
                     "document_id": clip.document_id,
-                    "location": clip.location_type,
+                    "location_type": clip.location_type,
                     "clip_start": clip.clip_start,
                     "clip_end": clip.clip_end,
                     "created_at": clip.created_at,
@@ -292,7 +388,7 @@ def complete_conversation(
             conversation_id,
             sender=MessageRoles.SYSTEM.value,
             content=response,
-            parent_message_id=str(user_message.id),
+            parent_message_id=parent_message_id,
         )
 
         return {
