@@ -2,10 +2,10 @@
 
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-// import { dummyDocuments } from "@/placeholderData";
 import { Clip, Book } from "@/definitions";
 import ImageThumbnail from "@/ui/ImageThumbnail";
 import BookDocumentCard from "@/ui/BookClipCard";
@@ -13,7 +13,7 @@ import BookDocumentCard from "@/ui/BookClipCard";
 type FetchClipApiResponse = {
 	id: string;
 	title: string;
-	authors: string;
+	authors: string | null;
 	document_id: string;
 	created_at: Date;
 	updated_at: Date | null;
@@ -47,11 +47,10 @@ export default function Document() {
 		fetch(resourceUrl, requestParams)
 			.then((res) => res.json())
 			.then((data: FetchClipApiResponse) => {
-				console.log(data);
 				const book: Book = {
 					id: data.document_id,
 					title: data.title,
-					authors: data.authors.split(";"),
+					authors: data.authors ? data.authors.split(";") : [],
 					createdAt: new Date(data.created_at), // Wrong for now
 					updatedAt: data.updated_at ? new Date(data.updated_at) : null,
 					catalogueId: data.catalogue_id,
@@ -91,7 +90,7 @@ export default function Document() {
 					const book: Book = {
 						id: doc.document_id,
 						title: doc.title,
-						authors: doc.authors.split(";"),
+						authors: doc.authors ? doc.authors.split(";") : [],
 						createdAt: new Date(doc.created_at),
 						updatedAt: doc.updated_at ? new Date(doc.updated_at) : null,
 						catalogueId: doc.catalogue_id,
@@ -143,22 +142,24 @@ export default function Document() {
 		<></>
 	) : (
 		<div className="mx-auto flex flex-col items-center w-full h-full pl-8 pt-20 pr-14 max-w-3xl">
-			<div className="flex flex-row gap-4 w-full">
-				<ImageThumbnail
-					width={100}
-					height={100}
-					src={"/vibrant.jpg"}
-					alt={clip.book.title}
-				/>
-				<div className="flex min-h-full flex-col w-full">
-					<div>
-						<h2 className="text-2xl font-bold line-clamp-1">
-							{clip.book.title}
-						</h2>
-						<p className="italic text-md">{clip.book.authors.join(", ")}</p>
+			<Link className="w-full" href={`/document/${clip.book.id}`}>
+				<div className="flex flex-row gap-4 w-full">
+					<ImageThumbnail
+						width={100}
+						height={100}
+						src={"/vibrant.jpg"}
+						alt={clip.book.title}
+					/>
+					<div className="flex min-h-full flex-col w-full">
+						<div>
+							<h2 className="text-2xl font-bold line-clamp-1">
+								{clip.book.title}
+							</h2>
+							<p className="italic text-md">{clip.book.authors.join(", ")}</p>
+						</div>
 					</div>
 				</div>
-			</div>
+			</Link>
 			<div className="flex flex-col justify-left">
 				<p className="w-full mt-6 italics text-xl">{clip.content}</p>
 				<p className="text-sm mt-4 italic text-slate-400">
