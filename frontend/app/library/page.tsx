@@ -75,7 +75,6 @@ export default function Library() {
 	const [searchTerm, setSearchTerm] = useState("");
 
 	const filteredItems = useMemo(() => {
-		console.log("searchTerm", searchTerm);
 		const normalizedSearch = searchTerm.toLowerCase().trim();
 
 		if (!normalizedSearch) return items;

@@ -67,9 +67,7 @@ export default function HomeSearchBar() {
 		try {
 			const query = searchValue;
 			const response = await fetch(resourceUrl, requestParams);
-			console.log("Response:", response);
 			const data = await response.json();
-			console.log("Data:", data);
 			// Set the conversation in Zustand store
 			if (data.id === undefined || data.id === null){
 				throw new Error("Conversation ID not found in response");

@@ -282,16 +282,7 @@ def complete_conversation(
     try:
         query = completion_payload.query
         parent_message_id = completion_payload.parent_message_id
-        # Add user message
-        # user_message = operations.add_message(
-        #     db,
-        #     user_id,
-        #     conversation_id,
-        #     sender=MessageRoles.USER.value,
-        #     content=query,
-        #     parent_message_id=parent_message_id,
-        # )
-        # conversation = user_message.conversation
+
         conversation = operations.get_conversation(
             db, user_id, conversation_id
         )

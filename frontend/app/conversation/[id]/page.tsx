@@ -73,7 +73,6 @@ export default function Conversation() {
 				sender: sender,
 				parent_message_id: parent_message_id,
 			};
-			console.log("Adding user message:", message);
 			const response = await fetch(
 				"http://localhost:8000/conversation/" + conversationId + "/message",
 				{
@@ -194,15 +193,35 @@ export default function Conversation() {
 		return <h1 className="text-lg font-bold p-2 pb-8">{name}</h1>;
 	}
 
+	function formatContentWithLinks(content: string) {
+		const parts = content.split(/```([^`]+)```/);
+  
+		return parts.map((part, index) => {
+		  // Even indices are regular text, odd indices are IDs
+		  if (index % 2 === 0) {
+			return part;
+		  } else {
+			return (
+			  <a 
+				key={part}
+				href={`/clip/${part}`}
+				className="text-blue-500 hover:underline"
+			  >
+				{part}
+			  </a>
+			);
+		  }
+		});
+	}
+
 	function renderMessage(message: Message, color: string) {
-		console.log(message);
 		return (
 			<div
 				className={"rounded-2xl border border-solid py-3.5 px-4" + color}
 				key={message.id}
 			>
 				<h2 className="text-sm italic">{message.sender}</h2>
-				<p>{message.content}</p>
+				<p>{formatContentWithLinks(message.content)}</p>
 			</div>
 		);
 	}

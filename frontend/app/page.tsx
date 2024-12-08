@@ -62,7 +62,6 @@ export default function Home() {
 		fetch(resourceUrl, requestParams)
 			.then((res) => res.json())
 			.then((data: FetchClipsApiResponse) => {
-				console.log(data);
 				const clips: Clip[] = data.map((response) => {
 					const book: Book = {
 						id: response.document_id,
@@ -91,7 +90,6 @@ export default function Home() {
 					};
 				});
 				setClips(clips);
-				console.log(clips);
 			})
 			.catch((err) => console.error(err));
 	}, []);
