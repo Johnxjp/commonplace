@@ -1,18 +1,23 @@
+from dotenv import load_dotenv, find_dotenv
 import os
 
-# TODO: Move all these to env files
-DB_DRIVER = "postgresql"
-DB_USERNAME = "postgres"
-DB_NAME = "conex"
-DB_HOST = "localhost"
-DB_PORT = 5432
+load_dotenv(find_dotenv())
 
-QUERY_DECOMPOSITION_MODEL = "gpt-4o-mini"
-ANSWER_MODEL = "gpt-4o-mini"
-EMBEDDING_MODEL = "text-embedding-3-small"
-EMBEDDING_DIMENSIONS = 1536  # open-ai-embeddings
-TFHUB_CACHE_DIR = os.path.join("dump/tfhub_models")
-CHUNKING_STRATEGY = None
-THRESHOLD_SCORE = 0.6
-AUTHOR_SEPARATOR = ";"
-MIN_CHUNK_SIZE = 20  # characters
+# TODO: Move all these to env files
+DB_DRIVER = os.getenv("DB_DRIVER", "postgresql")
+DB_USERNAME = os.getenv("DB_USERNAME")
+DB_NAME = os.getenv("DB_NAME")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = int(os.getenv("DB_PORT", 5432))
+QUERY_DECOMPOSITION_MODEL = os.getenv("QUERY_DECOMPOSITION_MODEL")
+ANSWER_MODEL = os.getenv("ANSWER_MODEL")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL")
+EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", 1536))
+CHUNKING_STRATEGY = (
+    os.getenv("CHUNKING_STRATEGY", "")
+    if os.getenv("CHUNKING_STRATEGY")
+    else None
+)
+THRESHOLD_SCORE = float(os.getenv("THRESHOLD_SCORE", 0.6))
+AUTHOR_SEPARATOR = os.getenv("AUTHOR_SEPARATOR", ";")
+MIN_CHUNK_SIZE = int(os.getenv("MIN_CHUNK_SIZE", 20))
