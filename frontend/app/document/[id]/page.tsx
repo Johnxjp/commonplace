@@ -110,7 +110,11 @@ export default function DocumentContainer() {
 					<ul className="pt-8 pb-8 flex flex-col gap-4">
 						{clips?.map((doc) => (
 							<li key={doc.id}>
-								<BookClipCard clampContent={false} clip={doc} />
+								<BookClipCard
+									clampContent={false}
+									clip={doc}
+									showMetadata={true}
+								/>
 							</li>
 						))}
 					</ul>

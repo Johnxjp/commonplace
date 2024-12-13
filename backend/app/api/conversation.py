@@ -57,7 +57,7 @@ def create_conversation(
             "name": conversation.name,
             "created_at": conversation.created_at,
             "updated_at": conversation.updated_at,
-            "current_leaf_message_uuid": conversation.current_leaf_message_uuid,  # noqa
+            "current_leaf_message_id": conversation.current_leaf_message_uuid,  # noqa
             "model": conversation.model,
         }
     except Exception as e:

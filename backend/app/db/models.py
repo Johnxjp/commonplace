@@ -80,7 +80,7 @@ class Book(Base):
         DateTime(timezone=True), nullable=False, default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, default=func.now()
     )
     clips: Mapped[list["Clip"]] = relationship(back_populates="document")
 
@@ -166,20 +166,27 @@ class Clip(Base):
         DateTime(timezone=True), nullable=False, default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, default=func.now()
     )
 
-    content: Mapped[str] = mapped_column(String, nullable=False)
+    # original_content: Mapped[str] = mapped_column(String, nullable=False)
+    # original content hash
     content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
 
+    content: Mapped[str] = mapped_column(String, nullable=False)
     # clip specified as location or page depending on type
     # This can be used to add comments or marginalia to this table too
     location_type: Mapped[str] = mapped_column(String, nullable=True)
     clip_start: Mapped[int] = mapped_column(Integer, nullable=True)
     clip_end: Mapped[int] = mapped_column(Integer, nullable=True)
 
+    # is_favourite: Mapped[bool] = mapped_column(
+    #     Integer, nullable=False, default=0
+    # )
+
     document: Mapped["Book"] = relationship(back_populates="clips")
-    UniqueConstraint(user_id, content_hash, name="unique_clip")
+
+    UniqueConstraint(user_id, document_id, content_hash, name="unique_clip")
 
     # create the repr
     def __repr__(self) -> str:
@@ -223,7 +230,7 @@ class Comment(Base):
         DateTime(timezone=True), nullable=False, default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=True
+        DateTime(timezone=True), nullable=True, default=func.now()
     )
 
     def __repr__(self) -> str:
@@ -253,7 +260,6 @@ class Embedding(Base):
         UUID, ForeignKey("clip.id", ondelete="CASCADE"), nullable=False
     )
 
-    # chunk_content
     chunk_content: Mapped[str] = mapped_column(String, nullable=False)
     cleaned_chunk: Mapped[str] = mapped_column(String, nullable=True)
     chunking_strategy: Mapped[str] = mapped_column(String, nullable=True)

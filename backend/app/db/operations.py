@@ -718,3 +718,31 @@ def delete_conversation(
         print(f"Error: {e}")
         db.rollback()
         raise e
+
+
+def delete_clip(
+    db: Session,
+    user_id: str,
+    clip_id: str,
+) -> None:
+    """
+    Deletes a conversation and all associated messages.
+    """
+    try:
+        statement = (
+            delete(models.Clip)
+            .where(models.Clip.id == clip_id)
+            .where(models.Clip.user_id == user_id)
+        )
+        db.execute(statement)
+        db.commit()
+    except IntegrityError as e:
+        print("Could not delete conversation")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+    except SQLAlchemyError as e:
+        print("Could not delete conversation")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e

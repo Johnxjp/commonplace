@@ -13,6 +13,6 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIMENSIONS = 1536  # open-ai-embeddings
 TFHUB_CACHE_DIR = os.path.join("dump/tfhub_models")
 CHUNKING_STRATEGY = None
-THRESHOLD_SCORE = 0.45
+THRESHOLD_SCORE = 0.6
 AUTHOR_SEPARATOR = ";"
 MIN_CHUNK_SIZE = 20  # characters

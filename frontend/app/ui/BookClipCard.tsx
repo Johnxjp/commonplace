@@ -48,7 +48,7 @@ export default function BookClipCard({
 	function renderAuthors() {
 		if (showAuthors) {
 			return (
-				<p className="text-xs italic line-clamp-1">
+				<p className="text-xs font-thin italic line-clamp-1">
 					{clip.book.authors.join(", ")}
 				</p>
 			);
@@ -57,12 +57,18 @@ export default function BookClipCard({
 
 	function renderMetadata() {
 		// TODO
-		if (showMetadata) return <></>;
+		if (showMetadata)
+			return (
+				<p className="italic text-sm text-slate-400">
+					{capitalizeFirstLetter(clip.locationType)} {clip.clipStart}{" "}
+					{clip.clipEnd ? `- ${clip.clipEnd}` : ""}
+				</p>
+			);
 	}
 
 	function renderContent() {
 		if (!clampContent) {
-			return <p className="text-sm italic">{formatContent(clip.content)}</p>;
+			return <p className="text-md italic">{formatContent(clip.content)}</p>;
 		}
 		return (
 			<p className="text-sm italic line-clamp-3">

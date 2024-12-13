@@ -20,7 +20,7 @@ from typing import Optional
 
 # from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -350,3 +350,31 @@ def library_search(
     """
     query = payload.query
     return operations.find_item_with_keyword(db, user_id, query)
+
+
+@LibraryRouter.delete("/clip/{clip_id}")
+def delete_clip(
+    clip_id: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a clip from the user's library.
+    """
+    clip = operations.get_user_clip_by_id(db, user_id, clip_id)
+    if not clip:
+        return HTTPException(
+            status_code=404,
+            detail=(
+                f"Clip with {clip_id=} " f"belonging to {user_id=} not found.",
+            ),
+        )
+    try:
+        operations.delete_clip(db, user_id, clip_id)
+        return Response(status_code=204)
+    except Exception as e:
+        logger.error(f"Error deleting clip: {e}")
+        return HTTPException(
+            status_code=500,
+            detail="Error deleting clip.",
+        )
