@@ -49,7 +49,7 @@ def main(readwise_csv: str):
             print(f"Adding {len(annotations)} annotations to database")
 
             # TODO: Need to normalise books consistently or do smarter search.
-            books = operations.find_books_in_catalogue(db, title, authors)
+            books = operations.find_catalogue_books(db, title, authors)
             if books:
                 book_item = books[0]
 

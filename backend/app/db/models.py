@@ -169,7 +169,7 @@ class Clip(Base):
         DateTime(timezone=True), nullable=True, default=func.now()
     )
 
-    # original_content: Mapped[str] = mapped_column(String, nullable=False)
+    original_content: Mapped[str] = mapped_column(String, nullable=False)
     # original content hash
     content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
 

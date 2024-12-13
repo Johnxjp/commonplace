@@ -18,8 +18,6 @@ from datetime import datetime
 import logging
 from typing import Optional
 
-# from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
@@ -45,6 +43,35 @@ class LibraryItem(BaseModel):
     n_clips: int
     thumbnail_path: str | None
     catalogue_id: UUID | None
+
+
+@LibraryRouter.get("/library/stats")
+def get_user_library_stats(
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    This will return a list of all documents in the user's library
+    including metadata about the document.
+    """
+    try:
+        stats = operations.get_user_library_stats(db, user_id)
+        if not stats:
+            return HTTPException(
+                status_code=404,
+                detail=f"Library for {user_id=} not found.",
+            )
+
+        return {
+            "total_documents": stats.n_books,
+            "total_clips": stats.n_clips,
+        }
+    except Exception as e:
+        logger.error(f"Error getting user library stats: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error getting user library stats.",
+        )
 
 
 @LibraryRouter.get("/library")
@@ -378,3 +405,32 @@ def delete_clip(
             status_code=500,
             detail="Error deleting clip.",
         )
+
+
+@LibraryRouter.patch("/clip/{clip_id}")
+def update_clip_content(
+    clip_id: str,
+    new_content: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a clip from the user's library.
+    """
+    try:
+        clip = operations.update_clip_content(
+            db, user_id, clip_id, new_content
+        )
+    except ValueError:
+        return HTTPException(
+            status_code=400,
+            detail=f"Clip with {clip_id=} not found.",
+        )
+    except Exception as e:
+        logger.error(f"Error updating clip: {e}")
+        return HTTPException(
+            status_code=500,
+            detail="Error updating clip.",
+        )
+
+    return clip

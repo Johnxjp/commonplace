@@ -11,6 +11,25 @@ from app.db import models
 from app.utils import hash_content
 
 
+def get_user_library_stats(
+    db: Session, user_id: str
+) -> Row[Tuple[int, int]] | None:
+    """Returns metadata on user's library."""
+    query = (
+        select(
+            func.count(models.Book.id).label("n_books"),
+            func.count(models.Clip.id).label("n_clips"),
+        )
+        .where(models.Book.user_id == user_id)
+        .join(
+            models.Clip,
+            models.Book.id == models.Clip.document_id,
+            isouter=True,
+        )
+    )
+    return db.execute(query).first()
+
+
 def get_user_library(db: Session, user_id: str):
     """Returns list of all books in user's library with metadata."""
     clips_count = (
@@ -220,6 +239,7 @@ def create_clip(
     clip = models.Clip(
         user_id=user_id,
         document_id=document_id,
+        original_content=content,
         content=content,
         content_hash=content_hash,
         location_type=location_type,
@@ -720,6 +740,36 @@ def delete_conversation(
         raise e
 
 
+def update_clip_content(
+    db: Session, user_id: str, clip_id: str, content: str
+) -> models.Clip:
+    """
+    Updates the content of a clip. The original content remains
+    in original_content_field.
+
+    TODO: New embeddings need to be generated. Let's assume for now that
+    the edits are minor and do not affect the overall meaning of the text.
+    """
+    clip = get_user_clip_by_id(db, user_id, clip_id)
+    if not clip:
+        raise ValueError("Clip does not exist")
+
+    clip.content = content
+    try:
+        db.commit()
+        return clip
+    except IntegrityError as e:
+        print("Could not update clip content")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+    except SQLAlchemyError as e:
+        print("Could not update clip content")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+
+
 def delete_clip(
     db: Session,
     user_id: str,
@@ -727,6 +777,8 @@ def delete_clip(
 ) -> None:
     """
     Deletes a conversation and all associated messages.
+
+    Embeddings should also be deleted via cascade.
     """
     try:
         statement = (

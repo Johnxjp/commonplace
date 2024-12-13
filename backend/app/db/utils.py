@@ -21,6 +21,7 @@ def convert_book_annotation_to_db_clip(
         document_id=UUID(document_id),
         created_at=annotation.date_annotated,
         updated_at=None,
+        original_content=annotation.content,
         content=annotation.content,
         content_hash=hash_content(annotation.content),
         location_type=annotation.location_type,
