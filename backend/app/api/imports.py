@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import traceback
 
-from app.api.utils import get_current_user
+from app.api.auth import get_current_user
 from app.db import get_db, operations
 from app.file_handlers import process_kindle_file, process_readwise_csv
 from app.file_handlers.readwise_parser import validate_readwise_csv

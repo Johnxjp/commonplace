@@ -8,6 +8,7 @@ from pgvector.sqlalchemy import Vector
 
 # See https://fastapi-utils.davidmontague.xyz/user-guide/basics/guid-type/
 from sqlalchemy import (
+    Boolean,
     ForeignKey,
     Integer,
     String,
@@ -27,6 +28,8 @@ class Base(DeclarativeBase):
 
 
 class User(Base):
+    # TODO: Consider using firebase to handle user authentication
+
     __tablename__ = "user"
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -36,20 +39,19 @@ class User(Base):
         nullable=False,
         server_default=text("uuid_generate_v4()"),
     )
-    # email: Mapped[str] = mapped_column(String, nullable=False)
-    # firebase_id: Mapped[str] = mapped_column(
-    #     String, unique=True, nullable=False
-    # )  # TODO: Create firebase
-    # username: Mapped[str] = mapped_column(String, nullable=True)
-    # disabled: Mapped[bool] = mapped_column(
-    #     Boolean, nullable=False, default=False
-    # )
-    created_at: Mapped[str] = mapped_column(
+    email: Mapped[str] = mapped_column(String, nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=func.now()
     )
-    # last_logged_in: Mapped[str] = mapped_column(
-    #     DateTime(timezone=True), nullable=True
-    # )
+    last_logged_in: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=func.now()
+    )
+
+    refresh_token: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Book(Base):

@@ -11,6 +11,44 @@ from app.db import models
 from app.utils import hash_content
 
 
+def get_user(db: Session, user_id: str) -> models.User | None:
+    """
+    Retrieve a user by their id.
+    """
+    query = select(models.User).filter_by(id=user_id)
+    return db.scalars(query).first()
+
+
+def get_user_by_email(db: Session, email: str) -> models.User | None:
+    """
+    Retrieve a user by their id.
+    """
+    query = select(models.User).filter_by(email=email)
+    return db.scalars(query).first()
+
+
+def create_user(db: Session, email: str, password_hash: str) -> models.User:
+    db_user = models.User(
+        email=email,
+        hashed_password=password_hash,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def set_user_refresh_token(
+    db: Session, user_id: str, refresh_token: str
+) -> models.User | None:
+    user = get_user(db, user_id)
+    if user:
+        user.refresh_token = refresh_token
+        db.commit()
+        return user
+    return None
+
+
 def get_user_library_stats(
     db: Session, user_id: str
 ) -> Row[Tuple[int, int]] | None:

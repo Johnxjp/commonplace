@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.api.utils import get_current_user
+from app.api.auth import get_current_user
 from app.config import THRESHOLD_SCORE
 from app.db import get_db, operations
 from app.index.llm import (
