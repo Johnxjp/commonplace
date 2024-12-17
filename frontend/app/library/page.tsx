@@ -40,33 +40,31 @@ type Item = {
 // user logs out or changes something
 function LibraryItem({ item }: { item: Item }) {
 	return (
-		<div className="w-full justify-items-left flex flex-row gap-x-2 hover:cursor-pointer hover:bg-slate-100 p-2">
-			<Link
-				className="h-full w-full absolute"
-				href={`/document/${item.id}`}
-			></Link>
-			<ImageThumbnail
-				src={item.thumbnailUrl ? item.thumbnailUrl : "/vibrant.jpg"}
-				alt={item.title}
-				height={80}
-				width={80}
-			/>
-			<div className="flex min-h-full flex-col w-full">
-				<div>
-					<h2 className="font-bold line-clamp-1">{item.title}</h2>
-					<p className="italic text-sm">{item.authors.join(", ")}</p>
-				</div>
-				<div className="text-sm flex grow flex-row gap-x-2 place-items-end">
-					<p>{item.clipCount} Annotations</p>
-					{item.updatedAt !== null ? (
+		<Link className="h-full w-full" href={`/document/${item.id}`}>
+			<div className="w-full flex gap-x-2 hover:cursor-pointer hover:bg-slate-100 p-2">
+				<ImageThumbnail
+					src={item.thumbnailUrl ? item.thumbnailUrl : "/vibrant.jpg"}
+					alt={item.title}
+					height={80}
+					width={80}
+				/>
+				<div className="flex min-h-full flex-col w-full">
+					<div>
+						<h2 className="font-bold line-clamp-1">{item.title}</h2>
+						<p className="italic text-sm">{item.authors.join(", ")}</p>
+					</div>
+					<div className="text-sm flex grow flex-row gap-x-2 place-items-end">
+						<p>{item.clipCount} Annotations</p>
+						{/* {item.updatedAt !== null ? (
 						<>
 							<p>&#183;</p>
-							<p title="Updated At">item.updatedAt</p>
+							<p title="Updated At">Last update: {item.updatedAt.toDateString()}</p>
 						</>
-					) : null}
+					) : null} */}
+					</div>
 				</div>
 			</div>
-		</div>
+		</Link>
 	);
 }
 
@@ -126,6 +124,27 @@ export default function Library() {
 			.catch((err) => console.error(err));
 	}, []);
 
+	function handleDelete(itemId: string) {
+		// Delete conversation
+		const serverUrl = "http://localhost:8000";
+		const resourceUrl = serverUrl + `/document/${itemId}`;
+		const requestParams = {
+			method: "DELETE",
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			},
+		};
+		fetch(resourceUrl, requestParams).then((res) => {
+			if (res.ok) {
+				console.log("Conversation deleted:", itemId);
+				// Remove conversation from state
+				const updatedItems = items.filter((item) => item.id !== itemId);
+				setItems(updatedItems);
+			} else console.error("Error deleting conversation:", itemId);
+		});
+	}
+
 	return (
 		<div className="min-h-full w-full min-w-0 flex-1">
 			<div className="mx-auto flex flex-col w-full h-full mt-0 pl-8 items-left pt-12 pr-14">
@@ -144,7 +163,22 @@ export default function Library() {
 					<ul className="grid grid-cols-1 divide-y-2">
 						{filteredItems.map((item) => (
 							<li key={item.id}>
-								<LibraryItem item={item} />
+								<div className="flex flex-row items-center gap-x-2">
+									<div className="flex grow">
+										<LibraryItem item={item} />
+									</div>
+									<div className="px-2">
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												handleDelete(item.id);
+											}}
+											className="max-h-10 rounded-lg py-1 px-2 bg-slate-300 text-sm text-white font-bold hover:bg-red-500"
+										>
+											Delete
+										</button>
+									</div>
+								</div>
 							</li>
 						))}
 					</ul>

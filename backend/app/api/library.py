@@ -379,7 +379,7 @@ def library_search(
     return operations.find_item_with_keyword(db, user_id, query)
 
 
-@LibraryRouter.delete("/document/{clip_id}")
+@LibraryRouter.delete("/document/{document_id}")
 def delete_document(
     document_id: str,
     user_id: str = Depends(get_current_user),
