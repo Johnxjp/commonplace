@@ -97,7 +97,7 @@ def get_user_library(
         )
 
 
-@LibraryRouter.get("/documents/{document_id}/annotations")
+@LibraryRouter.get("/document/{document_id}/annotations")
 def get_user_document_annotations(
     document_id: str,
     user_id: str = Depends(get_current_user),
@@ -169,7 +169,7 @@ def get_user_clip(
     }
 
 
-@LibraryRouter.get("/documents/{document_id}")
+@LibraryRouter.get("/document/{document_id}")
 def get_user_document(
     document_id: str,
     user_id: str = Depends(get_current_user),
@@ -194,7 +194,7 @@ def get_user_document(
     return document
 
 
-@LibraryRouter.get("/clips")
+@LibraryRouter.get("/clip")
 def get_clips(
     limit: int = 10,
     offset: int = 0,
@@ -274,7 +274,7 @@ def get_clips(
     return response
 
 
-@LibraryRouter.get("/clips/{clip_id}/similar")
+@LibraryRouter.get("/clip/{clip_id}/similar")
 def get_similar_clips(
     clip_id: str,
     topk: int = 5,
@@ -379,6 +379,35 @@ def library_search(
     return operations.find_item_with_keyword(db, user_id, query)
 
 
+@LibraryRouter.delete("/document/{clip_id}")
+def delete_document(
+    document_id: str,
+    user_id: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Delete a document from the user's library.
+    """
+    document = operations.get_user_book_by_id(db, user_id, document_id)
+    if not document:
+        return HTTPException(
+            status_code=404,
+            detail=(
+                f"Book with {document_id=} "
+                f"belonging to {user_id=} not found.",
+            ),
+        )
+    try:
+        operations.delete_user_book(db, user_id, document_id)
+        return Response(status_code=204)
+    except Exception as e:
+        logger.error(f"Error deleting document: {e}")
+        return HTTPException(
+            status_code=500,
+            detail="Error deleting document.",
+        )
+
+
 @LibraryRouter.delete("/clip/{clip_id}")
 def delete_clip(
     clip_id: str,
@@ -407,16 +436,21 @@ def delete_clip(
         )
 
 
+class ClipUpdatePayload(BaseModel):
+    new_content: str
+
+
 @LibraryRouter.patch("/clip/{clip_id}")
 def update_clip_content(
     clip_id: str,
-    new_content: str,
+    payload: ClipUpdatePayload,
     user_id: str = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Delete a clip from the user's library.
     """
+    new_content = payload.new_content
     try:
         clip = operations.update_clip_content(
             db, user_id, clip_id, new_content

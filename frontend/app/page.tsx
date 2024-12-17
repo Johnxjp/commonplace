@@ -50,7 +50,7 @@ export default function Home() {
 	useEffect(() => {
 		// setClips(dummyDocuments);
 		const serverUrl = "http://localhost:8000";
-		const resourceUrl = serverUrl + "/clips?limit=6&random=true";
+		const resourceUrl = serverUrl + "/clip?limit=6&random=true";
 		const requestParams = {
 			method: "GET",
 			headers: {

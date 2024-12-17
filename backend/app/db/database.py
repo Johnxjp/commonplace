@@ -33,6 +33,9 @@ with psycopg2.connect(
         cursor.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
         cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
 
+for table in Base.metadata.sorted_tables:
+    logger.info(f"Creating table: {table.name}")
+
 Base.metadata.create_all(bind=engine, checkfirst=True)
 
 

@@ -40,7 +40,7 @@ export default function DocumentContainer() {
 	// use effect to fetch document data
 	useEffect(() => {
 		const serverUrl = "http://localhost:8000";
-		const resourceUrl = serverUrl + "/documents/" + params.id + "/annotations";
+		const resourceUrl = serverUrl + "/document/" + params.id + "/annotations";
 		const requestParams = {
 			method: "GET",
 			headers: {

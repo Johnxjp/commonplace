@@ -14,13 +14,14 @@ def convert_book_annotation_to_db_clip(
     Convert a annotation annotation for a user to a database model object.
 
     If a reference annotation is given, it will be used to populate the
-    document
+    document.
+
+    Created_at and updated_at times are not set.
     """
     item = models.Clip(
         user_id=UUID(user_id),
         document_id=UUID(document_id),
-        created_at=annotation.date_annotated,
-        updated_at=None,
+        clipped_at=annotation.date_annotated,
         original_content=annotation.content,
         content=annotation.content,
         content_hash=hash_content(annotation.content),

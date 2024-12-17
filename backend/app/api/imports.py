@@ -20,21 +20,25 @@ from app.api.auth import get_current_user
 from app.db import get_db, operations
 from app.file_handlers import process_kindle_file, process_readwise_csv
 from app.file_handlers.readwise_parser import validate_readwise_csv
+from app.schemas import BookAnnotationType
+from app.utils import hash_content
 
 ImportRouter = APIRouter()
 logger = logging.getLogger(__name__)
 
 
 class ImportResponse(BaseModel):
-    new_annotation_imports: int
-    index_job_id: str = "6d032281-9e69-4753-a455-b48f7cb9b5c1"
+    total_documents: int
+    total_clips: int
+    new_clip_inserts: int
+    embedding_index_job_id: str = "6d032281-9e69-4753-a455-b48f7cb9b5c1"
 
 
-@ImportRouter.post("/documents/upload/readwise")
+@ImportRouter.post("/document/upload/readwise")
 async def import_book_annotations_from_readwise(
     csv_file: UploadFile,
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
 ) -> ImportResponse:
     """
     Import annotations from a readwise file and store those in a database.
@@ -43,11 +47,8 @@ async def import_book_annotations_from_readwise(
 
     It will also run a background job to chunk new annotations and generate
     embeddings.
-
-    TODO: Handle user authentication. Otherwise can call with any id?
     """
-
-    n_new_annos = 0
+    logger.info(f"Importing annotations from Readwise for user {user_id}")
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = csv_file.filename or "tmp_file"
@@ -58,7 +59,8 @@ async def import_book_annotations_from_readwise(
                 temp_file.write(content)
 
             if not validate_readwise_csv(temp_file_path):
-                # TODO: Any chance of more info?
+                # TODO: Any chance of more info? Have to break this function down
+                # To detect what is missing and return status message
                 raise HTTPException(
                     status_code=400,
                     detail=(
@@ -70,39 +72,64 @@ async def import_book_annotations_from_readwise(
             # Process the file
             contents = process_readwise_csv(temp_file_path)
 
-            # TODO: filter out notes for now
-            contents = {
-                key: [
-                    ann for ann in value if ann.annotation_type == "Highlight"
-                ]
-                for key, value in contents.items()
-            }
+        # TODO: filter out notes for now
+        contents = {
+            key: [
+                ann
+                for ann in value
+                if ann.annotation_type == BookAnnotationType.HIGHLIGHT.value
+            ]
+            for key, value in contents.items()
+        }
 
-        new_inserts = []
-        for (title, authors), annotations in contents.items():
+        document_values = []
+        for title, authors in contents.keys():
             books = operations.find_catalogue_books(db, title, authors)
-            if not books:
-                book = operations.create_book_catalogue_item(
-                    db, title, authors
-                )
-                print(f"Added book to catalogue:\n {book}")
-            else:
-                # Just get first for now e.g. if multiple editions
-                book = books[0]
-
-            new_inserts = operations.insert_book_all_documents(
-                db, current_user, str(book.id), annotations
+            catalogue_id = str(books[0].id) if len(books) else None
+            document_values.append(
+                {
+                    "user_id": user_id,
+                    "title": title,
+                    "authors": authors,
+                    "user_thumbnail_path": None,
+                    "catalogue_id": catalogue_id,
+                }
             )
-            n_new_annos += len(new_inserts)
+
+        # This returns all documents that were inserted or existing
+        documents = operations.insert_documents(db, document_values)
+        # Create all clips at once
+        all_clips = []
+        for doc in documents:
+            annotations = contents[(doc.title, doc.authors)]
+            doc_clips = [
+                {
+                    "user_id": user_id,
+                    "document_id": doc.id,
+                    # "clipped_at": annotation.date_annotated,
+                    # "original_content": annotation.content,
+                    "content": annotation.content,
+                    "content_hash": hash_content(annotation.content),
+                    "location_type": annotation.location_type,
+                    "clip_start": annotation.location_start,
+                    "clip_end": annotation.location_end,
+                }
+                for annotation in annotations
+            ]
+            all_clips.extend(doc_clips)
+
+        logger.info(all_clips[0])
+        successful_inserts = operations.insert_clips(db, all_clips)
+        n_new_annos = len(successful_inserts)
 
         # Run a background job to generate embeddings
         # TODO: Do we do this for all annotations at once?
         # Want to pass the job id to frontend to check status
         # Add callback?
-        # index_content(new_inserts)
         return ImportResponse(
-            new_annotation_imports=n_new_annos,
-            index_job_id="6d032281-9e69-4753-a455-b48f7cb9b5c1",
+            total_documents=len(contents),
+            total_clips=len(all_clips),
+            new_clip_inserts=n_new_annos,
         )
 
     except Exception as err:
@@ -112,11 +139,11 @@ async def import_book_annotations_from_readwise(
         ) from err
 
 
-@ImportRouter.post("/documents/upload/kindle")
+@ImportRouter.post("/document/upload/kindle")
 async def import_kindle_annotations(
     file: UploadFile,
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user),
 ) -> ImportResponse:
     """
     Import annotations from a kindle file and store those in a database.
@@ -147,7 +174,6 @@ async def import_kindle_annotations(
             ),
         )
 
-    n_new_annos = 0
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
             filename = file.filename or "tmp_file"
@@ -157,35 +183,70 @@ async def import_kindle_annotations(
                 content = await file.read()
                 temp_file.write(content)
 
-            grouped_annotations = process_kindle_file(temp_file_path)
+            contents = process_kindle_file(temp_file_path)
             logger.info(
-                f"Found annotation from {len(grouped_annotations)} "
-                "unique books"
+                f"Found annotation from {len(contents)} " "unique books"
             )
-            for (title, authors), annotations in grouped_annotations.items():
-                books = operations.find_catalogue_books(
-                    db,
-                    title,
-                    authors,
-                )
-                if len(books) == 0:
-                    book = operations.create_book_catalogue_item(
-                        db, title, authors, thumbnail_path=None
-                    )
-                    print(f"Added book to catalogue:\n {book}")
-                else:
-                    # Just get first for now e.g. if multiple editions
-                    book = books[0]
 
-                new_inserts = operations.insert_book_all_documents(
-                    db, current_user, str(book.id), annotations
-                )
-                n_new_annos += len(new_inserts)
+        # TODO: filter out notes for now
+        contents = {
+            key: [
+                ann
+                for ann in value
+                if ann.annotation_type == BookAnnotationType.HIGHLIGHT.value
+            ]
+            for key, value in contents.items()
+        }
 
-            return ImportResponse(
-                new_annotation_imports=n_new_annos,
-                index_job_id="6d032281-9e69-4753-a455-b48f7cb9b5c1",
+        document_values = []
+        for title, authors in contents.keys():
+            books = operations.find_catalogue_books(db, title, authors)
+            catalogue_id = str(books[0].id) if len(books) else None
+            document_values.append(
+                {
+                    "user_id": user_id,
+                    "title": title,
+                    "authors": authors,
+                    "user_thumbnail_path": None,
+                    "catalogue_id": catalogue_id,
+                }
             )
+
+        # This returns all documents that were inserted or existing
+        documents = operations.insert_documents(db, document_values)
+        # Create all clips at once
+        all_clips = []
+        for doc in documents:
+            annotations = contents[(doc.title, doc.authors)]
+            doc_clips = [
+                {
+                    "user_id": user_id,
+                    "document_id": doc.id,
+                    # "clipped_at": annotation.date_annotated,
+                    # "original_content": annotation.content,
+                    "content": annotation.content,
+                    "content_hash": hash_content(annotation.content),
+                    "location_type": annotation.location_type,
+                    "clip_start": annotation.location_start,
+                    "clip_end": annotation.location_end,
+                }
+                for annotation in annotations
+            ]
+            all_clips.extend(doc_clips)
+
+        logger.info(all_clips[0])
+        successful_inserts = operations.insert_clips(db, all_clips)
+        n_new_annos = len(successful_inserts)
+
+        # Run a background job to generate embeddings
+        # TODO: Do we do this for all annotations at once?
+        # Want to pass the job id to frontend to check status
+        # Add callback?
+        return ImportResponse(
+            total_documents=len(contents),
+            total_clips=len(all_clips),
+            new_clip_inserts=n_new_annos,
+        )
 
     except Exception as err:
         traceback.print_exc()

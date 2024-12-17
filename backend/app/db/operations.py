@@ -1,14 +1,13 @@
 from typing import Optional, Tuple
-
+import uuid
 
 # import numpy as np
 from sqlalchemy import func, select, Row, delete
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import schemas
 from app.db import models
-from app.utils import hash_content
 
 
 def get_user(db: Session, user_id: str) -> models.User | None:
@@ -121,6 +120,23 @@ def get_user_book_by_id(
     return db.scalars(query).first()
 
 
+def delete_user_book(db: Session, user_id: str, book_id: str) -> None:
+    """This will delete a book and all associated clips and embeddings"""
+    try:
+        statement = (
+            delete(models.Book)
+            .where(models.Book.id == book_id)
+            .where(models.Book.user_id == user_id)
+        )
+        db.execute(statement)
+        db.commit()
+    except Exception as e:
+        print("Could not delete book")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+
+
 def get_clips_by_book_id(
     db: Session, user_id: str, book_id: str
 ) -> list[models.Clip]:
@@ -220,8 +236,6 @@ def search_user_documents(
 ) -> models.Book | None:
     """
     Search for a book by title and author in the user's collections
-
-    TODO: Requires fuzzy matching
     """
     query = select(models.Book).filter_by(title=title, user_id=user_id)
     if authors:
@@ -263,39 +277,21 @@ def create_book(
     return book
 
 
-def create_clip(
+def insert_clip(
     db: Session,
-    user_id: str,
-    document_id: str,
-    content: str,
-    content_hash: str,
-    location_type: Optional[str] = None,
-    clip_start: Optional[int] = None,
-    clip_end: Optional[int] = None,
+    clip: models.Clip,
 ) -> models.Clip:
     """Create a new clip for a book."""
-    clip = models.Clip(
-        user_id=user_id,
-        document_id=document_id,
-        original_content=content,
-        content=content,
-        content_hash=content_hash,
-        location_type=location_type,
-        clip_start=clip_start,
-        clip_end=clip_end,
-    )
     try:
         db.add(clip)
         db.commit()
-    except IntegrityError as e:
+        db.refresh(clip)
+        return clip
+    except Exception as e:
         print("Could not insert new clip")
         print(f"Error: {e}")
         db.rollback()
-    except SQLAlchemyError as e:
-        print("Could not insert new clip")
-        print(f"Error: {e}")
-        db.rollback()
-    return clip
+        raise e
 
 
 def create_book_catalogue_item(
@@ -327,42 +323,75 @@ def create_book_catalogue_item(
     return book
 
 
-def insert_book_all_documents(
+def create_document(
     db: Session,
     user_id: str,
-    book_id: str,
-    documents: list[schemas.BookAnnotation],
-) -> list[models.Book]:
+    title: str,
+    authors: Optional[str] = None,
+    user_thumbnail_path: Optional[str] = None,
+    catalogue_id: Optional[str] = None,
+) -> models.Book:
+    """
+    Creates a new document for the user.
+    """
+    try:
+        book = create_book(
+            db,
+            user_id,
+            title,
+            authors,
+            user_thumbnail_path,
+            catalogue_id,
+        )
+        return book
+    except Exception as e:
+        print(f"Could not create document for {user_id}")
+        print(f"Error: {e}")
+        db.rollback()
+        raise e
+
+
+def insert_documents(db: Session, values: list[dict]) -> list[models.Book]:
+    """Bulk insert documents and return created / existing ones."""
+    if not values:
+        return []
+
+    stmt = insert(models.Book).values(values)
+    stmt = stmt.on_conflict_do_update(
+        constraint="unique_book",
+        set_={
+            "updated_at": func.now(),
+        },
+    ).returning(models.Book)
+
+    results = db.scalars(stmt).all()
+    db.commit()
+    return list(results)
+
+
+def insert_clips(
+    db: Session,
+    values: list[dict],
+) -> list[models.Clip]:
     """
     Inserts all documents into the database.
     Return the whole row of the database for the documents.
 
-    Skips over duplicates which violate integrity constraints.
-    """
-    inserted_rows = []
-    for doc in documents:
-        try:
-            r = create_clip(
-                db,
-                user_id,
-                book_id,
-                doc.content,
-                hash_content(doc.content),
-                doc.location_type,
-                doc.location_start,
-                doc.location_end,
-            )
-            inserted_rows.append(r)
-        except IntegrityError as e:
-            print(f"Could not insert {doc} for {book_id}")
-            print(f"Error: {e}")
-            db.rollback()
-        except SQLAlchemyError as e:
-            print(f"Could not insert {doc} for {book_id}")
-            print(f"Error: {e}")
-            db.rollback()
+    Clips already contains data about the document and the user. Assumes
+    those parent rows are already in the database.
 
-    return inserted_rows
+    Returns the new items inserted.
+    """
+    if not values:
+        return []
+
+    stmt = insert(models.Clip).values(values)
+    stmt = stmt.on_conflict_do_nothing(
+        constraint="unique_clip",
+    ).returning(models.Clip)
+    results = db.scalars(stmt).all()
+    db.commit()
+    return list(results)
 
 
 def insert_embedding(
@@ -766,12 +795,7 @@ def delete_conversation(
         )
         db.execute(statement)
         db.commit()
-    except IntegrityError as e:
-        print("Could not delete conversation")
-        print(f"Error: {e}")
-        db.rollback()
-        raise e
-    except SQLAlchemyError as e:
+    except Exception as e:
         print("Could not delete conversation")
         print(f"Error: {e}")
         db.rollback()
@@ -796,12 +820,7 @@ def update_clip_content(
     try:
         db.commit()
         return clip
-    except IntegrityError as e:
-        print("Could not update clip content")
-        print(f"Error: {e}")
-        db.rollback()
-        raise e
-    except SQLAlchemyError as e:
+    except Exception as e:
         print("Could not update clip content")
         print(f"Error: {e}")
         db.rollback()
@@ -826,12 +845,7 @@ def delete_clip(
         )
         db.execute(statement)
         db.commit()
-    except IntegrityError as e:
-        print("Could not delete conversation")
-        print(f"Error: {e}")
-        db.rollback()
-        raise e
-    except SQLAlchemyError as e:
+    except Exception as e:
         print("Could not delete conversation")
         print(f"Error: {e}")
         db.rollback()

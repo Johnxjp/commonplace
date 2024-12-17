@@ -74,7 +74,7 @@ export default function Document() {
 	useEffect(() => {
 		// Get semantically similar documents
 		const serverUrl = "http://localhost:8000";
-		const resourceUrl = serverUrl + "/clips/" + params.id + "/similar";
+		const resourceUrl = serverUrl + "/clip/" + params.id + "/similar";
 		const requestParams = {
 			method: "GET",
 			headers: {

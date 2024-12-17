@@ -126,7 +126,9 @@ class BookCatalogue(Base):
     amazon_url: Mapped[str] = mapped_column(String, nullable=True)
 
     # Had to be attributes and not strings
-    unique_title_authors = UniqueConstraint(title, authors)
+    unique_title_authors = UniqueConstraint(
+        title, authors, postgresql_nulls_not_distinct=True
+    )
 
     # create the repr
     def __repr__(self) -> str:
@@ -155,6 +157,8 @@ class Clip(Base):
         server_default=text("uuid_generate_v4()"),
     )
 
+    # TODO: Import source. Could be an ID to import history,
+
     # Base document information
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("user.id", ondelete="cascade")
@@ -163,7 +167,12 @@ class Clip(Base):
         UUID, ForeignKey("book.id", ondelete="cascade")
     )
 
-    # Clips can be created separately from the book
+    # When the clip was annotated
+    # clipped_at: Mapped[datetime] = mapped_column(
+    #     DateTime(timezone=True), nullable=True
+    # )
+
+    # When the clip was inserted
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=func.now()
     )
@@ -171,7 +180,7 @@ class Clip(Base):
         DateTime(timezone=True), nullable=True, default=func.now()
     )
 
-    original_content: Mapped[str] = mapped_column(String, nullable=False)
+    # original_content: Mapped[str] = mapped_column(String, nullable=False)
     # original content hash
     content_hash: Mapped[str] = mapped_column(String(32), nullable=False)
 

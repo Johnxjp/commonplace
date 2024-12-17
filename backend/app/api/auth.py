@@ -183,34 +183,38 @@ def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
         )
 
 
-def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
-) -> models.User:
+def get_current_user():
+    return "6d032281-9e69-4753-a455-b48f7cb9b5c9"
 
-    try:
-        payload = jwt.decode(
-            token, TOKEN_SECRET_KEY, algorithms=[TOKEN_ALGORITHM]
-        )
-        user_id: str = payload.get("sub", "")
-        user = operations.get_user(db, user_id)
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Could not find user",
-            )
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token Expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    except InvalidTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+
+# def get_current_user(
+#     db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)
+# ) -> models.User:
+
+#     try:
+#         payload = jwt.decode(
+#             token, TOKEN_SECRET_KEY, algorithms=[TOKEN_ALGORITHM]
+#         )
+#         user_id: str = payload.get("sub", "")
+#         user = operations.get_user(db, user_id)
+#         if user is None:
+#             raise HTTPException(
+#                 status_code=status.HTTP_404_NOT_FOUND,
+#                 detail="Could not find user",
+#             )
+#         return user
+#     except jwt.ExpiredSignatureError:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Token Expired",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#     except InvalidTokenError:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Could not validate credentials",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
 
 
 @AuthRouter.post("/logout")
