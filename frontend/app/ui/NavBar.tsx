@@ -41,6 +41,17 @@ export default function NavBar({
 							S
 						</Link>
 					</button>
+					<button
+						className="h-8 w-8 font-medium bg-white rounded-md hover:shadow-sm hover:border-md"
+						title="Import"
+					>
+						<Link
+							className="flex items-center justify-center h-full w-full"
+							href="/import"
+						>
+							I
+						</Link>
+					</button>
 				</div>
 			</div>
 			{children}
