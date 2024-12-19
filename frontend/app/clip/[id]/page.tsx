@@ -3,12 +3,13 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import Image from "next/image";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Clip, Book } from "@/definitions";
 import ImageThumbnail from "@/ui/ImageThumbnail";
-import BookDocumentCard from "@/ui/BookClipCard";
+import BookClipCard from "@/ui/BookClipCard";
 
 type FetchClipApiResponse = {
 	id: string;
@@ -25,11 +26,32 @@ type FetchClipApiResponse = {
 	thumbnail_path: string;
 };
 
-export default function Document() {
+export default function ClipComponent() {
 	const [clip, setClip] = useState<Clip>();
 	const [similarClips, setSimilarClips] = useState<Clip[]>([]);
 	const params = useParams();
+	const router = useRouter();
 
+	function handleDeleteClip() {
+		const serverUrl = "http://localhost:8000";
+		const resourceUrl = serverUrl + "/clip/" + clip.id;
+		fetch(resourceUrl, {
+			method: "DELETE",
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			},
+		})
+			.then((res) => {
+				if (res.ok) {
+					// Redirect to document page
+					router.push("/document/" + clip.book.id);
+				}
+			})
+			.catch((err) => {
+				console.error("Could not delete clip:", err);
+			});
+	}
 	// use effect to fetch document data
 	useEffect(() => {
 		// const document = dummyDocuments.find((doc) => doc.id === params.id);
@@ -121,11 +143,11 @@ export default function Document() {
 					className="flex w-full justify-left flex-col"
 					id="semantically-similar"
 				>
-					<h2 className="text-lg font-bold mt-8">Similar Annotations</h2>
-					<ul className="pt-8 pb-8 flex flex-col gap-4">
+					<h2 className="text-lg font-bold mt-8">Related</h2>
+					<ul className="pt-4 pb-8 flex flex-col gap-4">
 						{similarClips?.map((doc) => (
 							<li key={doc.id}>
-								<BookDocumentCard
+								<BookClipCard
 									clampContent={false}
 									clip={doc}
 									showTitle={true}
@@ -162,10 +184,36 @@ export default function Document() {
 			</Link>
 			<div className="flex flex-col justify-left">
 				<p className="w-full mt-6 italics text-xl">{clip.content}</p>
-				<p className="text-sm mt-4 italic text-slate-400">
-					{`Location ${clip.clipStart}`}
-					{clip.clipEnd ? `-${clip.clipEnd}` : null}
-				</p>
+				<div className="flex flex-row items-end justify-between w-full mt-4">
+					<p className="text-sm italic text-slate-400">
+						{`Location ${clip.clipStart}`}
+						{clip.clipEnd ? `-${clip.clipEnd}` : null}
+					</p>
+					<button
+						onClick={(e) => {
+							e.stopPropagation();
+							handleDeleteClip();
+						}}
+					>
+						<div
+							className="relative"
+							style={{
+								minWidth: 25,
+								maxWidth: 25,
+								minHeight: 25,
+								maxHeight: 25,
+							}}
+						>
+							<Image
+								className="rounded-md object-cover bg-gray-200 hover:bg-orange-200 p-1"
+								src="/trash.svg"
+								alt="delete"
+								fill={true}
+								sizes="20vw"
+							/>
+						</div>
+					</button>
+				</div>
 			</div>
 			{similarClips.length > 0 && rendersimilarClips()}
 		</div>

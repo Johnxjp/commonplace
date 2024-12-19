@@ -90,7 +90,7 @@ export default function HomeSearchBar() {
 	return (
 		<div className="w-full max-w-4xl mx-auto px-1 md:px-2">
 			<form onSubmit={handleSubmit} className="mb-8">
-				<div className="flex gap-1 border rounded-lg py-1 px-1">
+				<div className="flex gap-1 border rounded-lg py-1 px-1 bg-white">
 					<textarea
 						ref={textareaRef}
 						value={searchValue}

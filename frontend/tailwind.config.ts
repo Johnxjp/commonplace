@@ -14,6 +14,7 @@ export default {
 			colors: {
 				background: "var(--background)",
 				foreground: "var(--foreground)",
+				breakfast: "#f8c366",
 			},
 		},
 	},

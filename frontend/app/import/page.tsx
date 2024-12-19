@@ -31,7 +31,7 @@ export default function ImportPage() {
 										className="w-8 h-8"
 									/> */}
 									<span className="text-lg font-medium">
-										Import from Readwise
+										Import from Readwise File
 									</span>
 								</button>
 								<button

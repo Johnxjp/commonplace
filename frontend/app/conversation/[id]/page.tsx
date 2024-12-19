@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useConversationStore } from "@/store/useConversationStore";
 import { Message, Clip, ConversationMetadata } from "@/definitions";
+import BookClipCard from "@/ui/BookClipCard";
 
 export default function Conversation() {
 	// This page displays the conversation between the user and the system.
@@ -127,7 +128,39 @@ export default function Conversation() {
 			summary: data.summary,
 			messageCount: data.message_count,
 		};
-		const messages = data.messages;
+		const messages = data.messages.map((message) => {
+			const sources = message.sources.map((source) => {
+				return {
+					id: source.id,
+					book: {
+						id: source.document_id,
+						title: source.title,
+						authors: source.authors.split(";"),
+						createdAt: new Date(source.created_at),
+						updatedAt: source.updated_at ? new Date(source.updated_at) : null,
+						catalogueId: source.catalogue_id,
+						thumbnailUrl: source.user_thumbnail_path,
+					},
+					content: source.content,
+					createdAt: new Date(source.created_at),
+					updatedAt: source.updated_at ? new Date(source.updated_at) : null,
+					locationType: source.location_type,
+					clipStart: source.clip_start,
+					clipEnd: source.clip_end,
+				};
+			});
+
+			return {
+				id: message.id,
+				content: message.content,
+				sender: message.sender,
+				parent_message_id: message.parent_id,
+				createdAt: new Date(message.created_at),
+				updatedAt: new Date(message.updated_at),
+				contentSources: sources,
+			};
+		});
+
 		return { message: messages, metadata: conversationMetadata };
 	}
 
@@ -154,7 +187,7 @@ export default function Conversation() {
 					book: {
 						id: source.document_id,
 						title: source.title,
-						authors: source.authors,
+						authors: source.authors.split(";"),
 						createdAt: new Date(source.created_at),
 						updatedAt: source.updated_at ? new Date(source.updated_at) : null,
 						catalogueId: source.catalogue_id,
@@ -190,56 +223,86 @@ export default function Conversation() {
 				? "Untitled"
 				: conversationMetadata.name;
 
-		return <h1 className="text-lg font-bold p-2 pb-8">{name}</h1>;
+		return <h1 className="text-lg text-center font-bold p-2 pb-8">{name}</h1>;
 	}
 
-	function formatContentWithLinks(content: string) {
+	function formatContentWithLinks(content: string, contentSources: Clip[]) {
 		const parts = content.split(/```([^`]+)```/);
-  
 		return parts.map((part, index) => {
-		  // Even indices are regular text, odd indices are IDs
-		  if (index % 2 === 0) {
-			return part;
-		  } else {
-			return (
-			  <a 
-				key={part}
-				href={`/clip/${part}`}
-				className="text-blue-500 hover:underline"
-			  >
-				{part}
-			  </a>
-			);
-		  }
+			// Even indices are regular text, odd indices are IDs
+			if (index % 2 === 0) {
+				return part;
+			} else {
+				// Find the index of the source with the matching ID
+				const sourceIndex = contentSources.findIndex(
+					(source) => source.id === part
+				);
+				if (sourceIndex === -1) {
+					return <span key={part}>[Source Not Found]</span>;
+				}
+				const source = contentSources[sourceIndex];
+				console.log("Source", source);
+				const shortTitle = source.book.title.split(":")[0];
+				return (
+					<span key={part}>
+						<a
+							key={part}
+							href={`/clip/${part}`}
+							className="text-sm text-slate-400 italic hover:text-black"
+						>
+							{`(${shortTitle}, ${source.book.authors.join(", ")})`}
+						</a>
+					</span>
+				);
+			}
 		});
 	}
 
-	function renderMessage(message: Message, color: string) {
+	function renderUserMessage(message: Message, color: string) {
+		console.log("Rendering message", message);
 		return (
 			<div
 				className={"rounded-2xl border border-solid py-3.5 px-4" + color}
 				key={message.id}
 			>
-				<h2 className="text-sm italic">{message.sender}</h2>
-				<p>{formatContentWithLinks(message.content)}</p>
+				{/* <h2 className="text-sm italic">{message.sender}</h2> */}
+				<p>{message.content}</p>
+				{message.contentSources.map((source) => (
+					<div key={source.id}>
+						<BookClipCard clampContent={false} clip={source} showTitle={true} />
+					</div>
+				))}
+			</div>
+		);
+	}
+
+	function renderSystemMessage(message: Message, contentSources: Clip[]) {
+		console.log("Rendering system message", contentSources);
+		return (
+			<div className={"rounded-2xl py-3.5 px-4"} key={message.id}>
+				{/* <h2 className="text-sm italic">{message.sender}</h2> */}
+				<p>{formatContentWithLinks(message.content, contentSources)}</p>
 			</div>
 		);
 	}
 
 	return (
-		<div className="mx-auto mt-4 w-full max-w-7xl flex-1 px-4 pb-20 md:pl-8 lg:mt-6 md:pr-14">
+		<div className="mx-auto mt-4 w-full max-w-4xl flex-1 px-4 pb-20 md:pl-8 lg:mt-6 md:pr-14">
 			{renderConversationName()}
 			<div className="flex flex-col gap-y-4">
 				{messages.map((message) => {
 					const color =
-						message.sender === "user" ? " bg-orange-100" : " bg-white";
-					return renderMessage(message, color);
+						message.sender === "user" ? " bg-amber-300" : " bg-white";
+					if (message.sender === "system") {
+						return renderSystemMessage(message, message.contentSources);
+					}
+					return renderUserMessage(message, color);
 				})}
 			</div>
 			<div>
 				{loading && (
-					<div className="flex justify-center items-center">
-						<p>Loading...</p>
+					<div className="flex justify-center items-center p-4">
+						<p>Searching for answers...hold on</p>
 					</div>
 				)}
 			</div>

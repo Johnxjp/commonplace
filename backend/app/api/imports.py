@@ -99,8 +99,11 @@ async def import_book_annotations_from_readwise(
         # This returns all documents that were inserted or existing
         documents = operations.insert_documents(db, document_values)
         # Create all clips at once
-        all_clips = []
+
+        total_clips = 0
+        new_inserts = 0
         for doc in documents:
+            all_clips = []
             annotations = contents[(doc.title, doc.authors)]
             doc_clips = [
                 {
@@ -117,10 +120,8 @@ async def import_book_annotations_from_readwise(
                 for annotation in annotations
             ]
             all_clips.extend(doc_clips)
-
-        logger.info(all_clips[0])
-        successful_inserts = operations.insert_clips(db, all_clips)
-        n_new_annos = len(successful_inserts)
+            successful_inserts = operations.insert_clips(db, all_clips)
+            new_inserts += len(successful_inserts)
 
         # Run a background job to generate embeddings
         # TODO: Do we do this for all annotations at once?
@@ -128,8 +129,8 @@ async def import_book_annotations_from_readwise(
         # Add callback?
         return ImportResponse(
             total_documents=len(contents),
-            total_clips=len(all_clips),
-            new_clip_inserts=n_new_annos,
+            total_clips=total_clips,
+            new_clip_inserts=new_inserts,
         )
 
     except Exception as err:

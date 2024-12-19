@@ -6,6 +6,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+import nltk
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -127,6 +128,51 @@ def get_conversation(
             detail=f"Conversation with id {conversation_id} not found",
         )
     messages = sorted(conversation.messages, key=lambda x: x.created_at)
+    return_messages = []
+    for message in messages:
+        # TODO: This is a major hack. Feels iffy. Should be stored
+        if message.sender == MessageRoles.USER.value:
+            sources = []
+        else:
+            sources = []
+            source_ids = extract_ids_from_llm_response(message.content)
+            logger.info(f"Extracted source ids: {source_ids}")
+            for source_id in source_ids:
+                clip = operations.get_user_clip_by_id(db, user_id, source_id)
+                if not clip:
+                    # What to do here. There are a number of reasons this could
+                    # be wrong. Either the LLM misquoted the source id or the
+                    # source id is not in the database anymore.
+                    logger.error(f"Clip with id {source_id} not found")
+                else:
+                    # TODO: Sources are returned but not in fetch_conversation
+                    formatted_source = {
+                        "id": clip.id,
+                        "content": clip.content,
+                        "document_id": clip.document_id,
+                        "location_type": clip.location_type,
+                        "clip_start": clip.clip_start,
+                        "clip_end": clip.clip_end,
+                        "created_at": clip.created_at,
+                        "updated_at": clip.updated_at,
+                        "title": clip.document.title,
+                        "authors": clip.document.authors,
+                        "catalogue_id": clip.document.catalogue_id,
+                        "user_thumbnail_path": clip.document.user_thumbnail_path,
+                    }
+                    sources.append(formatted_source)
+        return_messages.append(
+            {
+                "id": message.id,
+                "conversation_id": message.conversation_id,
+                "parent_id": message.parent_id,
+                "created_at": message.created_at,
+                "sender": message.sender,
+                "content": message.content,
+                "sources": sources,
+            }
+        )
+
     return {
         "id": conversation.id,
         "name": conversation.name,
@@ -136,7 +182,7 @@ def get_conversation(
         "model": conversation.model,
         "summary": conversation.summary,
         "message_count": conversation.message_count,
-        "messages": messages,
+        "messages": return_messages,
     }
 
 
@@ -293,7 +339,7 @@ def complete_conversation(
             )
 
         if conversation.name is None:
-            name = query[:50]
+            name = nltk.sent_tokenize(query)[0]
             conversation = operations.add_conversation_name(
                 db, user_id, conversation_id, name
             )
@@ -348,6 +394,7 @@ def complete_conversation(
                 logger.error(f"Clip with id {source_id} not found")
                 invalid_ids.append(source_id)
             else:
+                # TODO: Sources are returned but not in fetch_conversation
                 formatted_source = {
                     "id": clip.id,
                     "content": clip.content,

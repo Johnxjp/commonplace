@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { getTimeOfDay } from "@/utils";
 import { Clip, Book } from "@/definitions";
-import BookDocumentCard from "@/ui/BookClipCard";
+import BookClipCard from "@/ui/BookClipCard";
 import HomeSearchBar from "@/HomeSearchBar";
 // import { dummyDocuments } from "@/placeholderData";
 
@@ -14,7 +14,7 @@ function ClipSampleGrid({ clips }: { clips: Clip[] }) {
 			<ul className="grid w-full md:grid-cols-3 gap-3">
 				{clips.map((clip) => (
 					<li className="flex-1" key={clip.id}>
-						<BookDocumentCard
+						<BookClipCard
 							clip={clip}
 							clampContent={true}
 							showTitle={true}

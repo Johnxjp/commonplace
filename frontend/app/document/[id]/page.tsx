@@ -114,6 +114,7 @@ export default function DocumentContainer() {
 									clampContent={false}
 									clip={doc}
 									showMetadata={true}
+									showDeleteButton={true}
 								/>
 							</li>
 						))}

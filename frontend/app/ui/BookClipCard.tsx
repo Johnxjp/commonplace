@@ -1,4 +1,5 @@
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 import { capitalizeFirstLetter } from "@/utils";
 import Clip from "@/definitions";
@@ -9,6 +10,7 @@ type BookClipCardProps = {
 	showMetadata?: boolean;
 	showTitle?: boolean; // Title
 	showAuthors?: boolean; // Authors only
+	showDeleteButton?: boolean;
 };
 
 export default function BookClipCard({
@@ -17,6 +19,7 @@ export default function BookClipCard({
 	showMetadata = false,
 	showTitle = false,
 	showAuthors = false,
+	showDeleteButton = false,
 }: BookClipCardProps) {
 	const router = useRouter();
 
@@ -42,7 +45,11 @@ export default function BookClipCard({
 
 	function renderTitle() {
 		if (showTitle) {
-			return <h2 className=" text-sm line-clamp-1">{clip.book.title}</h2>;
+			return (
+				<h2 title={clip.book.title} className=" text-sm line-clamp-1">
+					{clip.book.title}
+				</h2>
+			);
 		}
 	}
 	function renderAuthors() {
@@ -77,15 +84,70 @@ export default function BookClipCard({
 		);
 	}
 
+	function handleDeleteClip() {
+		const serverUrl = "http://localhost:8000";
+		const resourceUrl = serverUrl + "/clip/" + clip.id;
+		fetch(resourceUrl, {
+			method: "DELETE",
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+			},
+		})
+			.then((res) => {
+				if (res.ok) {
+					// Redirect to document page
+					router.push("/document/" + clip.book.id);
+				}
+			})
+			.catch((err) => {
+				console.error("Could not delete clip:", err);
+			});
+	}
+
+	function renderDeleteButton() {
+		if (!showDeleteButton) return null;
+
+		return (
+			<button
+				onClick={(e) => {
+					e.stopPropagation();
+					handleDeleteClip();
+				}}
+			>
+				<div
+					className="relative"
+					style={{
+						minWidth: 25,
+						maxWidth: 25,
+						minHeight: 25,
+						maxHeight: 25,
+					}}
+				>
+					<Image
+						className="rounded-md object-cover bg-gray-200 hover:bg-orange-200 p-1"
+						src="/trash.svg"
+						alt="delete"
+						fill={true}
+						sizes="20vw"
+					/>
+				</div>
+			</button>
+		);
+	}
+
 	return (
 		<div
 			onClick={() => handleOnClick()}
-			className="h-full w-full border border-border-300 hover:border-border-200 group relative flex cursor-pointer flex-col gap-1.5 rounded-xl py-5 px-6 transition-all ease-in-out hover:shadow-sm active:scale-[0.98] md:gap-4"
+			className="h-full w-full bg-white border border-border-300 hover:border-border-200 group relative flex cursor-pointer flex-col gap-1.5 rounded-xl py-5 px-6 transition-all ease-in-out hover:shadow-sm active:scale-[0.98] md:gap-4"
 		>
 			{renderTitle()}
 			{renderAuthors()}
 			{renderContent()}
-			{renderMetadata()}
+			<div className="flex flex-row items-end justify-between gap-2">
+				{renderMetadata()}
+				{renderDeleteButton()}
+			</div>
 		</div>
 	);
 }
